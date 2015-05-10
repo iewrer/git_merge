@@ -942,6 +942,7 @@ public class Parser extends CommitRollbackParser implements ConflictedParser, Op
 	protected int identifierPtr;
 	protected char[][] identifierStack;
 	protected boolean ignoreNextOpeningBrace;
+	protected boolean ignoreNextClosingBrace;
 
 	//positions , dimensions , .... (int stacks)
 	protected int intPtr;
@@ -1015,6 +1016,7 @@ private boolean haltOnSyntaxError = false;
 private boolean tolerateDefaultClassMethods = false;
 private boolean processingLambdaParameterList = false;
 private boolean expectTypeAnnotation = false;
+private boolean reparsingLambdaExpression = false;
 
 public Parser () {
 	// Caveat Emptor: For inheritance purposes and then only in very special needs. Only minimal state is initialized !
@@ -1538,7 +1540,9 @@ protected void consumeAllocationHeader() {
 		this.lastCheckPoint = anonymousType.bodyStart = this.scanner.currentPosition;
 		this.currentElement = this.currentElement.add(anonymousType, 0);
 		this.lastIgnoredToken = -1;
-		if (!isIndirectlyInsideLambdaExpression())
+		if (isIndirectlyInsideLambdaExpression())
+			this.ignoreNextOpeningBrace = true;
+		else
 			this.currentToken = 0; // opening brace already taken into account
 		return;
 	}
@@ -3472,7 +3476,9 @@ protected void consumeEnterAnonymousClassBody(boolean qualified) {
 		this.lastCheckPoint = anonymousType.bodyStart;
 		this.currentElement = this.currentElement.add(anonymousType, 0);
 		if (!(this.currentElement instanceof RecoveredAnnotation)) {
-			if (!isIndirectlyInsideLambdaExpression())
+			if (isIndirectlyInsideLambdaExpression())
+				this.ignoreNextOpeningBrace = true;
+			else 
 				this.currentToken = 0; // opening brace already taken into account
 		} else {
 			this.ignoreNextOpeningBrace = true;
@@ -3674,8 +3680,10 @@ protected void consumeEnumConstantHeader() {
 	  	this.currentElement = this.currentElement.add(anonymousType, 0);
       	this.lastCheckPoint = anonymousType.bodyStart;
         this.lastIgnoredToken = -1;
-        if (!isIndirectlyInsideLambdaExpression())
-        	this.currentToken = 0; // opening brace already taken into account
+        if (isIndirectlyInsideLambdaExpression())
+			this.ignoreNextOpeningBrace = true;
+		else
+			this.currentToken = 0; // opening brace already taken into account
 	  } else {
 	  	  if(this.currentToken == TokenNameSEMICOLON) {
 		  	RecoveredType currentType = currentRecoveryType();
@@ -7956,6 +7964,7 @@ protected void consumeLambdaHeader() {
 	this.processingLambdaParameterList = false;
 	if (this.currentElement != null) {
 		this.lastCheckPoint = arrowPosition + 1; // we don't want the typed formal parameters to be processed by recovery.
+		this.currentElement.lambdaNestLevel++;
 	}
 }
 protected void consumeLambdaExpression() {
@@ -7968,9 +7977,11 @@ protected void consumeLambdaExpression() {
 	Statement body = (Statement) this.astStack[this.astPtr--];
 	if (body instanceof Block) {
 		if (this.options.ignoreMethodBodies) {
+			Statement oldBody = body;
 			body = new Block(0);
+			body.sourceStart = oldBody.sourceStart;
+			body.sourceEnd = oldBody.sourceEnd;
 		}
-		((Block) body).lambdaBody = true; // for consistency's sakes.
 	}
 
 	LambdaExpression lexp = (LambdaExpression) this.astStack[this.astPtr--];
@@ -7988,6 +7999,7 @@ protected void consumeLambdaExpression() {
 	pushOnExpressionStack(lexp);
 	if (this.currentElement != null) {
 		this.lastCheckPoint = body.sourceEnd + 1;
+		this.currentElement.lambdaNestLevel --;
 	}
 	this.referenceContext.compilationResult().hasFunctionalTypes = true;
 	markEnclosingMemberWithLocalOrFunctionalType(LocalTypeKind.LAMBDA);
@@ -8974,6 +8986,7 @@ protected void consumeToken(int type) {
 		case TokenNameStringLiteral :
 			StringLiteral stringLiteral;
 			if (this.recordStringLiterals &&
+					!this.reparsingLambdaExpression &&
 					this.checkExternalizeStrings &&
 					this.lastPosistion < this.scanner.currentPosition &&
 					!this.statementRecoveryActivated) {
@@ -10491,6 +10504,11 @@ public boolean hasLeadingTagComment(char[] commentPrefixTag, int rangeEnd) {
 	}
 	return false;
 }
+
+@Override
+protected void ignoreNextClosingBrace() {
+	this.ignoreNextClosingBrace = true;
+}
 protected void ignoreExpressionAssignment() {
 	// Assignment ::= InvalidArrayInitializerAssignement
 	// encoded operator would be: this.intStack[this.intPtr]
@@ -11544,6 +11562,7 @@ public ASTNode[] parseClassBodyDeclarations(char[] source, int offset, int lengt
 
 public Expression parseLambdaExpression(char[] source, int offset, int length, CompilationUnitDeclaration unit, boolean recordLineSeparators) {
 	this.haltOnSyntaxError = true; // unexposed/unshared object, no threading concerns.
+	this.reparsingLambdaExpression = true;
 	return parseExpression(source, offset, length, unit, recordLineSeparators);
 }
 
@@ -12098,6 +12117,10 @@ public void recoveryTokenCheck() {
 			break;
 
 		case TokenNameRBRACE :
+			if (this.ignoreNextClosingBrace) {
+				this.ignoreNextClosingBrace = false;
+				break;
+			}
 			this.rBraceStart = this.scanner.startPosition - 1;
 			this.rBraceEnd = this.scanner.currentPosition - 1;
 			this.endPosition = flushCommentsDefinedPriorTo(this.rBraceEnd);

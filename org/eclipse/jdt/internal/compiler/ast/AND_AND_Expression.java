@@ -103,6 +103,7 @@ public class AND_AND_Expression extends BinaryExpression {
 				codeStream.removeNotDefinitelyAssignedVariables(currentScope, this.mergedInitStateIndex);
 			}
 			codeStream.generateImplicitConversion(this.implicitConversion);
+			codeStream.updateLastRecordedEndPC(currentScope, codeStream.position);
 			codeStream.recordPositionsFrom(pc, this.sourceStart);
 			return;
 		}
@@ -146,9 +147,11 @@ public class AND_AND_Expression extends BinaryExpression {
 		if (valueRequired) {
 			if (leftIsConst && !leftIsTrue) {
 				codeStream.iconst_0();
+				codeStream.updateLastRecordedEndPC(currentScope, codeStream.position);
 			} else {
 				if (rightIsConst && !rightIsTrue) {
 					codeStream.iconst_0();
+					codeStream.updateLastRecordedEndPC(currentScope, codeStream.position);
 				} else {
 					codeStream.iconst_1();
 				}
@@ -170,7 +173,7 @@ public class AND_AND_Expression extends BinaryExpression {
 				}
 			}
 			codeStream.generateImplicitConversion(this.implicitConversion);
-			codeStream.recordPositionsFrom(codeStream.position, this.sourceEnd);
+			codeStream.updateLastRecordedEndPC(currentScope, codeStream.position);
 		} else {
 			falseLabel.place();
 		}
@@ -226,7 +229,7 @@ public class AND_AND_Expression extends BinaryExpression {
 							valueRequired && !rightIsConst);
 					if (valueRequired && rightIsConst && rightIsTrue) {
 						codeStream.goto_(trueLabel);
-						codeStream.recordPositionsFrom(codeStream.position, this.sourceEnd);
+						codeStream.updateLastRecordedEndPC(currentScope, codeStream.position);
 					}
 					internalFalseLabel.place();
 				}
@@ -235,12 +238,9 @@ public class AND_AND_Expression extends BinaryExpression {
 				if (trueLabel == null) {
 					this.left.generateOptimizedBoolean(currentScope, codeStream, null, falseLabel, !leftIsConst);
 					// need value, e.g. if (a == 1 && ((b = 2) > 0)) {} -> shouldn't initialize 'b' if a!=1
-					int pc = codeStream.position;
 					if (leftIsConst && !leftIsTrue) {
-						if (valueRequired) {
-							codeStream.goto_(falseLabel);
-						}
-						codeStream.recordPositionsFrom(pc, this.sourceEnd);
+						if (valueRequired) codeStream.goto_(falseLabel);
+						codeStream.updateLastRecordedEndPC(currentScope, codeStream.position);
 						break generateOperands; // no need to generate right operand
 					}
 					if (this.rightInitStateIndex != -1) {
@@ -250,7 +250,7 @@ public class AND_AND_Expression extends BinaryExpression {
 					this.right.generateOptimizedBoolean(currentScope, codeStream, null, falseLabel, valueRequired && !rightIsConst);
 					if (valueRequired && rightIsConst && !rightIsTrue) {
 						codeStream.goto_(falseLabel);
-						codeStream.recordPositionsFrom(pc, this.sourceEnd);
+						codeStream.updateLastRecordedEndPC(currentScope, codeStream.position);
 					}
 				} else {
 					// no implicit fall through TRUE/FALSE --> should never occur

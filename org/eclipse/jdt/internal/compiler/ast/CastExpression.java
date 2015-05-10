@@ -491,10 +491,7 @@ public TypeBinding resolveType(BlockScope scope) {
 		MethodBinding methodBinding = messageSend.binding;
 		if (methodBinding != null && methodBinding.isPolymorphic()) {
 			messageSend.binding = scope.environment().updatePolymorphicMethodReturnType((PolymorphicMethodBinding) methodBinding, castType);
-			if (expressionType != castType) {
-				expressionType = castType;
-				this.bits |= ASTNode.DisableUnnecessaryCastCheck;
-			}
+			expressionType = castType;
 		}
 	}
 	if (castType != null) {

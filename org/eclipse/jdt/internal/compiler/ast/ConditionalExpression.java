@@ -229,7 +229,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 				// Jump over the else part
 				int position = codeStream.position;
 				codeStream.goto_(endifLabel);
-				codeStream.recordPositionsFrom(position, this.valueIfTrue.sourceEnd);
+				codeStream.updateLastRecordedEndPC(currentScope, position);
 				// Tune codestream stack size
 				if (valueRequired) {
 					switch(this.resolvedType.id) {
@@ -284,8 +284,6 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		BranchLabel trueLabel,
 		BranchLabel falseLabel,
 		boolean valueRequired) {
-
-		int pc = codeStream.position;
 
 		if ((this.constant != Constant.NotAConstant) && (this.constant.typeID() == T_boolean) // constant
 			|| ((this.valueIfTrue.implicitConversion & IMPLICIT_CONVERSION_MASK) >> 4) != T_boolean) { // non boolean values
@@ -344,7 +342,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 					}
 					int position = codeStream.position;
 					codeStream.goto_(endifLabel);
-					codeStream.recordPositionsFrom(position, this.valueIfTrue.sourceEnd);
+					codeStream.updateLastRecordedEndPC(currentScope, position);
 				}
 				// No need to decrement codestream stack size
 				// since valueIfTrue was already consumed by branch bytecode
@@ -366,7 +364,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 			codeStream.removeNotDefinitelyAssignedVariables(currentScope, this.mergedInitStateIndex);
 		}
 		// no implicit conversion for boolean values
-		codeStream.recordPositionsFrom(pc, this.sourceEnd);
+		codeStream.updateLastRecordedEndPC(currentScope, codeStream.position);
 	}
 
 	public int nullStatus(FlowInfo flowInfo) {

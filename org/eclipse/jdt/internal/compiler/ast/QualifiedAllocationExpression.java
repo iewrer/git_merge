@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,13 +13,7 @@
  *								bug 186342 - [compiler][null] Using annotations for null checking
  *								bug 368546 - [compiler][resource] Avoid remaining false positives found when compiling the Eclipse SDK
  *								bug 370639 - [compiler][resource] restore the default for resource leak warnings
- *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
- *								bug 388996 - [compiler][resource] Incorrect 'potential resource leak'
- *								bug 395977 - [compiler][resource] Resource leak warning behavior possibly incorrect for anonymous inner class
- *								bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
- *     Jesper S Moller <jesper@selskabet.org> - Contributions for
- *								bug 378674 - "The method can be declared as static" is wrong
- ******************************************************************************/
+ *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
@@ -76,8 +70,6 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 				if (superclass != null && superclass.isMemberType() && !superclass.isStatic()) {
 					// creating an anonymous type of a non-static member type without an enclosing instance of parent type
 					currentScope.resetDeclaringClassMethodStaticFlag(superclass.enclosingType());
-					// Reviewed for https://bugs.eclipse.org/bugs/show_bug.cgi?id=378674 :
-					// The corresponding problem (when called from static) is not produced until during code generation
 				}
 			}
 			
@@ -94,16 +86,15 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 		// process arguments
 		if (this.arguments != null) {
 			boolean analyseResources = currentScope.compilerOptions().analyseResourceLeaks;
-			boolean hasResourceWrapperType = analyseResources 
-						&& this.resolvedType instanceof ReferenceBinding 
-						&& ((ReferenceBinding)this.resolvedType).hasTypeBit(TypeIds.BitWrapperCloseable);
 			for (int i = 0, count = this.arguments.length; i < count; i++) {
-				flowInfo = this.arguments[i].analyseCode(currentScope, flowContext, flowInfo);
-				if (analyseResources && !hasResourceWrapperType) { // allocation of wrapped closeables is analyzed specially
+				if (analyseResources) {
 					// if argument is an AutoCloseable insert info that it *may* be closed (by the target method, i.e.)
-					flowInfo = FakedTrackingVariable.markPassedToOutside(currentScope, this.arguments[i], flowInfo, flowContext, false);
+					flowInfo = FakedTrackingVariable.markPassedToOutside(currentScope, this.arguments[i], flowInfo, false);
 				}
-				this.arguments[i].checkNPEbyUnboxing(currentScope, flowContext, flowInfo);
+				flowInfo = this.arguments[i].analyseCode(currentScope, flowContext, flowInfo);
+				if ((this.arguments[i].implicitConversion & TypeIds.UNBOXING) != 0) {
+					this.arguments[i].checkNPE(currentScope, flowContext, flowInfo);
+				}
 			}
 			analyseArguments(currentScope, flowContext, flowInfo, this.binding, this.arguments);
 		}
@@ -135,10 +126,6 @@ public class QualifiedAllocationExpression extends AllocationExpression {
 
 		manageEnclosingInstanceAccessIfNecessary(currentScope, flowInfo);
 		manageSyntheticAccessIfNecessary(currentScope, flowInfo);
-
-		// account for possible exceptions thrown by constructor execution:
-		flowContext.recordAbruptExit();
-
 		return flowInfo;
 	}
 

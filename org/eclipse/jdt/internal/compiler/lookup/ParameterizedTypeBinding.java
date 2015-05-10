@@ -7,9 +7,7 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann - Contributions for
- *								bug 349326 - [1.7] new warning for missing try-with-resources
- *								bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+ *     Stephan Herrmann - Contribution for bug 349326 - [1.7] new warning for missing try-with-resources
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -74,7 +72,7 @@ public class ParameterizedTypeBinding extends ReferenceBinding implements Substi
 			TypeVariableBinding[] typeVariables = this.type.typeVariables();
 			if (this.arguments != null && typeVariables != null) { // arguments may be null in error cases
 				for (int i = 0, length = typeVariables.length; i < length; i++) {
-				    if (typeVariables[i].boundCheck(this, this.arguments[i], scope)  != TypeConstants.OK) {
+				    if (typeVariables[i].boundCheck(this, this.arguments[i])  != TypeConstants.OK) {
 				    	hasErrors = true;
 				    	if ((this.arguments[i].tagBits & TagBits.HasMissingType) == 0) {
 				    		// do not report secondary error, if type reference already got complained against

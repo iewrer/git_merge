@@ -26,6 +26,7 @@
  *								Bug 392245 - [1.8][compiler][null] Define whether / how @NonNullByDefault applies to TYPE_USE locations
  *								Bug 429958 - [1.8][null] evaluate new DefaultLocation attribute of @NonNullByDefault
  *								Bug 390889 - [1.8][compiler] Evaluate options to support 1.7- projects against 1.8 JRE.
+ *								Bug 438458 - [1.8][null] clean up handling of null type annotations wrt type variables
  *    Jesper Steen Moller - Contributions for
  *								Bug 412150 [1.8] [compiler] Enable reflected parameter names during annotation processing
  *								Bug 412153 - [1.8][compiler] Check validity of annotations which may be repeatable
@@ -1466,6 +1467,12 @@ SimpleLookupTable storedAnnotations(boolean forceInitialize) {
 //pre: null annotation analysis is enabled
 private void scanFieldForNullAnnotation(IBinaryField field, FieldBinding fieldBinding, boolean isEnum) {
 	if (!isPrototype()) throw new IllegalStateException();
+
+	if (isEnum && (field.getModifiers() & ClassFileConstants.AccEnum) != 0) {
+		fieldBinding.tagBits |= TagBits.AnnotationNonNull;
+		return; // we know it's nonnull, no need to look for null *annotations* on enum constants.
+	}
+
 	if (this.environment.globalOptions.sourceLevel >= ClassFileConstants.JDK1_8) {
 		TypeBinding fieldType = fieldBinding.type;
 		if (fieldType != null
@@ -1508,11 +1515,6 @@ private void scanFieldForNullAnnotation(IBinaryField field, FieldBinding fieldBi
 	}
 	if (!explicitNullness && (this.tagBits & TagBits.AnnotationNonNullByDefault) != 0) {
 		fieldBinding.tagBits |= TagBits.AnnotationNonNull;
-	}
-	if (isEnum) {
-		if ((field.getModifiers() & ClassFileConstants.AccEnum) != 0) {
-			fieldBinding.tagBits |= TagBits.AnnotationNonNull;
-		}
 	}
 }
 
@@ -1916,7 +1918,14 @@ public String toString() {
 	return buffer.toString();
 }
 
-public TypeBinding unannotated() {
+public TypeBinding unannotated(boolean removeOnlyNullAnnotations) {
+	if (removeOnlyNullAnnotations) {
+		if (!hasNullTypeAnnotations())
+			return this;
+		AnnotationBinding[] newAnnotations = this.environment.filterNullTypeAnnotations(this.typeAnnotations);
+		if (newAnnotations.length > 0)
+			return this.environment.createAnnotatedType(this.prototype, newAnnotations);
+	}
 	return this.prototype;
 }
 

@@ -32,6 +32,7 @@
  *								Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
  *								Bug 429958 - [1.8][null] evaluate new DefaultLocation attribute of @NonNullByDefault
  *								Bug 432348 - [1.8] Internal compiler error (NPE) after upgrade to 1.8
+ *								Bug 438458 - [1.8][null] clean up handling of null type annotations wrt type variables
  *      Jesper S Moller <jesper@selskabet.org> -  Contributions for
  *								Bug 412153 - [1.8][compiler] Check validity of annotations which may be repeatable
  *      Till Brychcy - Contributions for
@@ -689,7 +690,7 @@ public SyntheticMethodBinding addSyntheticFactoryMethod(MethodBinding privateCon
  */
 public SyntheticMethodBinding addSyntheticBridgeMethod(MethodBinding inheritedMethodToBridge, MethodBinding targetMethod) {
 	if (!isPrototype()) throw new IllegalStateException();
-	if (isInterface()) return null; // only classes & enums get bridge methods
+	if (isInterface() && this.scope.compilerOptions().sourceLevel <= ClassFileConstants.JDK1_7) return null; // only classes & enums get bridge methods, interfaces too at 1.8+
 	// targetMethod may be inherited
 	if (TypeBinding.equalsEquals(inheritedMethodToBridge.returnType.erasure(), targetMethod.returnType.erasure())
 		&& inheritedMethodToBridge.areParameterErasuresEqual(targetMethod)) {
@@ -2510,7 +2511,14 @@ void verifyMethods(MethodVerifier verifier) {
 		 ((SourceTypeBinding) this.memberTypes[i]).verifyMethods(verifier);
 }
 
-public TypeBinding unannotated() {
+public TypeBinding unannotated(boolean removeOnlyNullAnnotations) {
+	if (removeOnlyNullAnnotations) {
+		if (!hasNullTypeAnnotations())
+			return this;
+		AnnotationBinding[] newAnnotations = this.environment.filterNullTypeAnnotations(this.typeAnnotations);
+		if (newAnnotations.length > 0)
+			return this.environment.createAnnotatedType(this.prototype, newAnnotations);
+	}
 	return this.prototype;
 }
 

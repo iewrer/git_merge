@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2013 BEA Systems, Inc.
+ * Copyright (c) 2005, 2009 BEA Systems, Inc.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,12 +7,10 @@
  *
  * Contributors:
  *    tyeung@bea.com - initial API and implementation
- *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
- *          Bug 407191 - [1.8] Binary access support for type annotations
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.classfmt;
 
-public class FieldInfoWithAnnotation extends FieldInfo {
+public final class FieldInfoWithAnnotation extends FieldInfo {
 	private AnnotationInfo[] annotations;
 
 FieldInfoWithAnnotation(FieldInfo info, AnnotationInfo[] annos) {
@@ -33,9 +31,8 @@ public org.eclipse.jdt.internal.compiler.env.IBinaryAnnotation[] getAnnotations(
 	return this.annotations;
 }
 protected void initialize() {
-	if (this.annotations != null)
-		for (int i = 0, max = this.annotations.length; i < max; i++)
-			this.annotations[i].initialize();
+	for (int i = 0, max = this.annotations.length; i < max; i++)
+		this.annotations[i].initialize();
 	super.initialize();
 }
 protected void reset() {

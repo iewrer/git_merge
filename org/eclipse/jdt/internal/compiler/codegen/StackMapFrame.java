@@ -309,7 +309,7 @@ private void printFrame(StringBuffer buffer, StackMapFrame frame) {
 	int localsLength = frame.locals == null ? 0 : frame.locals.length;
 	buffer.append(MessageFormat.format(
 		pattern,
-		new Object[] {
+		new String[] {
 			Integer.toString(frame.pc),
 			Integer.toString(frame.getNumberOfLocals()),
 			Integer.toString(frame.numberOfStackItems),

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,22 +14,8 @@
  *								bug 370639 - [compiler][resource] restore the default for resource leak warnings
  *								bug 388996 - [compiler][resource] Incorrect 'potential resource leak'
  *								bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
- *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
- *								Bug 424710 - [1.8][compiler] CCE in SingleNameReference.localVariableBinding
- *								Bug 425152 - [1.8] [compiler] Lambda Expression not resolved but flow analyzed leading to NPE.
- *								Bug 424205 - [1.8] Cannot infer type for diamond type with lambda on method invocation
- *								Bug 424415 - [1.8][compiler] Eventual resolution of ReferenceExpression is not seen to be happening.
- *								Bug 426366 - [1.8][compiler] Type inference doesn't handle multiple candidate target types in outer overload context
- *								Bug 426290 - [1.8][compiler] Inference + overloading => wrong method resolution ?
- *								Bug 427483 - [Java 8] Variables in lambdas sometimes can't be resolved
- *								Bug 427438 - [1.8][compiler] NPE at org.eclipse.jdt.internal.compiler.ast.ConditionalExpression.generateCode(ConditionalExpression.java:280)
- *								Bug 428352 - [1.8][compiler] Resolution errors don't always surface
- *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
- *                          Bug 409245 - [1.8][compiler] Type annotations dropped when call is routed through a synthetic bridge method
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
-
-import static org.eclipse.jdt.internal.compiler.ast.ExpressionContext.INVOCATION_CONTEXT;
 
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
@@ -40,25 +26,21 @@ import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
-import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
+import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.LocalTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodScope;
-import org.eclipse.jdt.internal.compiler.lookup.ParameterizedGenericMethodBinding;
-import org.eclipse.jdt.internal.compiler.lookup.ParameterizedMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.RawTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
-import org.eclipse.jdt.internal.compiler.lookup.Scope;
 import org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TagBits;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
 import org.eclipse.jdt.internal.compiler.lookup.VariableBinding;
-import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
 
-public class ExplicitConstructorCall extends Statement implements Invocation {
+public class ExplicitConstructorCall extends Statement implements InvocationSite {
 
 	public Expression[] arguments;
 	public Expression qualification;
@@ -76,10 +58,6 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 
 	// TODO Remove once DOMParser is activated
 	public int typeArgumentsSourceStart;
-
-	 // hold on to this context from invocation applicability inference until invocation type inference (per method candidate):
-	private SimpleLookupTable/*<PGMB,InferenceContext18>*/ inferenceContexts;
-	private InnerInferenceHelper innerInferenceHelper;
 
 	public ExplicitConstructorCall(int accessMode) {
 		this.accessMode = accessMode;
@@ -189,9 +167,9 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 					i++) {
 					codeStream.aconst_null();
 				}
-				codeStream.invoke(Opcodes.OPC_invokespecial, this.syntheticAccessor, null /* default declaringClass */, this.typeArguments);
+				codeStream.invoke(Opcodes.OPC_invokespecial, this.syntheticAccessor, null /* default declaringClass */);
 			} else {
-				codeStream.invoke(Opcodes.OPC_invokespecial, codegenBinding, null /* default declaringClass */, this.typeArguments);
+				codeStream.invoke(Opcodes.OPC_invokespecial, codegenBinding, null /* default declaringClass */);
 			}
 			codeStream.recordPositionsFrom(pc, this.sourceStart);
 		} finally {
@@ -354,9 +332,8 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 				}
 			}
 			// resolve type arguments (for generic constructor call)
-			long sourceLevel = scope.compilerOptions().sourceLevel;
 			if (this.typeArguments != null) {
-				boolean argHasError = sourceLevel < ClassFileConstants.JDK1_5;
+				boolean argHasError = scope.compilerOptions().sourceLevel < ClassFileConstants.JDK1_5;
 				int length = this.typeArguments.length;
 				this.genericTypeArguments = new TypeBinding[length];
 				for (int i = 0; i < length; i++) {
@@ -390,13 +367,8 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 						argument.bits |= ASTNode.DisableUnnecessaryCastCheck; // will check later on
 						argsContainCast = true;
 					}
-					argument.setExpressionContext(INVOCATION_CONTEXT);
 					if ((argumentTypes[i] = argument.resolveType(scope)) == null) {
 						argHasError = true;
-					}
-					if (sourceLevel >= ClassFileConstants.JDK1_8 && (argument.isPolyExpression() || ((argument instanceof Invocation) && ((Invocation) argument).usesInference()))) {
-						if (this.innerInferenceHelper == null)
-							this.innerInferenceHelper = new InnerInferenceHelper();
 					}
 				}
 				if (argHasError) {
@@ -408,7 +380,7 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 					for (int i = length; --i >= 0;) {
 						pseudoArgs[i] = argumentTypes[i] == null ? TypeBinding.NULL : argumentTypes[i]; // replace args with errors with null type
 					}
-					this.binding = scope.findMethod(receiverType, TypeConstants.INIT, pseudoArgs, this, false);
+					this.binding = scope.findMethod(receiverType, TypeConstants.INIT, pseudoArgs, this);
 					if (this.binding != null && !this.binding.isValidBinding()) {
 						MethodBinding closestMatch = ((ProblemMethodBinding)this.binding).closestMatch;
 						// record the closest match, for clients who may still need hint about possible method match
@@ -434,9 +406,7 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 			if (receiverType == null) {
 				return;
 			}
-			this.binding = findConstructorBinding(scope, this, receiverType, argumentTypes);
-
-			if (this.binding.isValidBinding()) {
+			if ((this.binding = scope.getConstructor(receiverType, argumentTypes, this)).isValidBinding()) {
 				if ((this.binding.tagBits & TagBits.HasMissingType) != 0) {
 					if (!methodScope.enclosingSourceType().isAnonymousType()) {
 						scope.problemReporter().missingTypeInConstructor(this, this.binding);
@@ -496,60 +466,5 @@ public class ExplicitConstructorCall extends Statement implements Invocation {
 			}
 		}
 		visitor.endVisit(this, scope);
-	}
-
-	// -- interface Invocation: --
-	public MethodBinding binding(TypeBinding targetType, boolean reportErrors, Scope scope) {
-		if (reportErrors) {
-			if (this.binding == null)
-				scope.problemReporter().genericInferenceError("constructor is unexpectedly unresolved", this); //$NON-NLS-1$
-			else if (!this.binding.isValidBinding())
-				scope.problemReporter().invalidConstructor(this, this.binding);
-		}
-		return this.binding;
-	}
-	public Expression[] arguments() {
-		return this.arguments;
-	}
-	public boolean updateBindings(MethodBinding updatedBinding, TypeBinding targetType) {
-		boolean hasUpdate = this.binding != updatedBinding;
-		if (this.inferenceContexts != null) {
-			InferenceContext18 ctx = (InferenceContext18)this.inferenceContexts.removeKey(this.binding);
-			if (ctx != null && updatedBinding instanceof ParameterizedGenericMethodBinding) {
-				this.inferenceContexts.put(updatedBinding, ctx);
-				// solution may have come from an outer inference, mark now that this (inner) is done (but not deep inners):
-				hasUpdate |= ctx.registerSolution(targetType, updatedBinding);
-			}
-		}
-		this.binding = updatedBinding;
-		return hasUpdate;
-	}
-	public void registerInferenceContext(ParameterizedGenericMethodBinding method, InferenceContext18 infCtx18) {
-		if (this.inferenceContexts == null)
-			this.inferenceContexts = new SimpleLookupTable();
-		this.inferenceContexts.put(method, infCtx18);
-	}
-	public InferenceContext18 getInferenceContext(ParameterizedMethodBinding method) {
-		if (this.inferenceContexts == null)
-			return null;
-		return (InferenceContext18) this.inferenceContexts.get(method);
-	}
-	public boolean usesInference() {
-		return (this.binding instanceof ParameterizedGenericMethodBinding) 
-				&& getInferenceContext((ParameterizedGenericMethodBinding) this.binding) != null;
-	}
-	public boolean innersNeedUpdate() {
-		return this.innerInferenceHelper != null;
-	}
-	public void innerUpdateDone() {
-		this.innerInferenceHelper = null;
-	}
-	public InnerInferenceHelper innerInferenceHelper() {
-		return this.innerInferenceHelper;
-	}
-
-	// -- interface InvocationSite: --
-	public InferenceContext18 freshInferenceContext(Scope scope) {
-		return new InferenceContext18(scope, this.arguments, this);
 	}
 }

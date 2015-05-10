@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,51 +15,24 @@ package org.eclipse.jdt.internal.codeassist.impl;
  *
  */
 
-import java.util.HashSet;
-
-import org.eclipse.jdt.internal.compiler.ast.ASTNode;
-import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.AbstractVariableDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.Annotation;
-import org.eclipse.jdt.internal.compiler.ast.Block;
-import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.ConstructorDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.ExplicitConstructorCall;
-import org.eclipse.jdt.internal.compiler.ast.Expression;
-import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.ForeachStatement;
-import org.eclipse.jdt.internal.compiler.ast.ImportReference;
-import org.eclipse.jdt.internal.compiler.ast.Initializer;
-import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
-import org.eclipse.jdt.internal.compiler.ast.LocalDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.MessageSend;
-import org.eclipse.jdt.internal.compiler.ast.MethodDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.NameReference;
-import org.eclipse.jdt.internal.compiler.ast.Statement;
-import org.eclipse.jdt.internal.compiler.ast.SuperReference;
-import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
-import org.eclipse.jdt.internal.compiler.ast.TypeReference;
+import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
-import org.eclipse.jdt.internal.compiler.parser.CommitRollbackParser;
 import org.eclipse.jdt.internal.compiler.parser.Parser;
 import org.eclipse.jdt.internal.compiler.parser.RecoveredBlock;
 import org.eclipse.jdt.internal.compiler.parser.RecoveredElement;
 import org.eclipse.jdt.internal.compiler.parser.RecoveredField;
 import org.eclipse.jdt.internal.compiler.parser.RecoveredInitializer;
-import org.eclipse.jdt.internal.compiler.parser.RecoveredLocalVariable;
 import org.eclipse.jdt.internal.compiler.parser.RecoveredMethod;
-import org.eclipse.jdt.internal.compiler.parser.RecoveredStatement;
 import org.eclipse.jdt.internal.compiler.parser.RecoveredType;
 import org.eclipse.jdt.internal.compiler.parser.RecoveredUnit;
 import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
-@SuppressWarnings({"rawtypes"})
+
 public abstract class AssistParser extends Parser {
 	public ASTNode assistNode;
 	public boolean isOrphanCompletionNode;
-	private boolean resumedAfterRepair = false;
 	// last modifiers info
 	protected int lastModifiers = ClassFileConstants.AccDefault;
 	protected int lastModifiersStart = -1;
@@ -95,8 +68,7 @@ public abstract class AssistParser extends Parser {
 	protected static final int K_FIELD_INITIALIZER_DELIMITER = ASSIST_PARSER + 4; // whether we are inside a field initializer
 	protected static final int K_ATTRIBUTE_VALUE_DELIMITER = ASSIST_PARSER + 5; // whether we are inside a annotation attribute valuer
 	protected static final int K_ENUM_CONSTANT_DELIMITER = ASSIST_PARSER + 6; // whether we are inside a field initializer
-	protected static final int K_LAMBDA_EXPRESSION_DELIMITER = ASSIST_PARSER + 7; // whether we are inside a lambda expression
-	
+
 	// selector constants
 	protected static final int THIS_CONSTRUCTOR = -1;
 	protected static final int SUPER_CONSTRUCTOR = -2;
@@ -104,12 +76,8 @@ public abstract class AssistParser extends Parser {
 	// enum constant constants
 	protected static final int NO_BODY = 0;
 	protected static final int WITH_BODY = 1;
-	
-	protected static final int EXPRESSION_BODY = 0;
-	protected static final int BLOCK_BODY = 1;
 
 	protected boolean isFirst = false;
-
 
 public AssistParser(ProblemReporter problemReporter) {
 	super(problemReporter, true);
@@ -118,34 +86,8 @@ public AssistParser(ProblemReporter problemReporter) {
 	setMethodsFullRecovery(false);
 	setStatementsRecovery(false);
 }
-
 public abstract char[] assistIdentifier();
 
-public void copyState(CommitRollbackParser from) {
-	
-	super.copyState(from);
-
-	AssistParser parser = (AssistParser) from;
-	
-	this.previousToken = parser.previousToken;
-	this.previousIdentifierPtr = parser.previousIdentifierPtr;
-	
-	this.lastModifiers = parser.lastModifiers;
-	this.lastModifiersStart = parser.lastModifiersStart;
-	
-	this.bracketDepth = parser.bracketDepth;
-	this.elementPtr = parser.elementPtr;
-	
-	int length;
-	System.arraycopy(parser.blockStarts, 0, this.blockStarts = new int [length = parser.blockStarts.length], 0, length);
-	System.arraycopy(parser.elementKindStack, 0, this.elementKindStack = new int [length = parser.elementKindStack.length], 0, length);
-	System.arraycopy(parser.elementInfoStack, 0, this.elementInfoStack = new int [length = parser.elementInfoStack.length], 0, length);
-	System.arraycopy(parser.elementObjectInfoStack, 0, this.elementObjectInfoStack = new Object [length = parser.elementObjectInfoStack.length], 0, length);
-	
-	this.previousKind = parser.previousKind;
-	this.previousInfo = parser.previousInfo;
-	this.previousObjectInfo = parser.previousObjectInfo;
-}
 /**
  * The parser become a simple parser which behave like a Parser
  * @return the state of the assist parser to be able to restore the assist parser state
@@ -176,7 +118,6 @@ public RecoveredElement buildInitialRecoveryState(){
 		RecoveredElement element = super.buildInitialRecoveryState();
 		flushAssistState();
 		flushElementStack();
-		this.snapShot = null;
 		return element;
 	}
 
@@ -217,12 +158,13 @@ public RecoveredElement buildInitialRecoveryState(){
 	element = element.add(block, 1);
 	int blockIndex = 1;	// ignore first block start, since manually rebuilt here
 
-	ASTNode node = null, lastNode = null;
-	for (int i = 0; i <= this.astPtr; i++, lastNode = node) {
-		node = this.astStack[i];
+	for(int i = 0; i <= this.astPtr; i++){
+		ASTNode node = this.astStack[i];
+
 		if(node instanceof ForeachStatement && ((ForeachStatement)node).action == null) {
 			node = ((ForeachStatement)node).elementVariable;
 		}
+
 		/* check for intermediate block creation, so recovery can properly close them afterwards */
 		int nodeStart = node.sourceStart;
 		for (int j = blockIndex; j <= this.realBlockPtr; j++){
@@ -247,7 +189,6 @@ public RecoveredElement buildInitialRecoveryState(){
 			}
 			blockIndex = j+1; // shift the index to the new block
 		}
-		
 		if (node instanceof LocalDeclaration){
 			LocalDeclaration local = (LocalDeclaration) node;
 			if (local.declarationSourceEnd == 0){
@@ -311,17 +252,6 @@ public RecoveredElement buildInitialRecoveryState(){
 			}
 			continue;
 		}
-		if (this.assistNode != null && node instanceof Statement) {
-			Statement stmt = (Statement) node;
-			if (!(stmt instanceof Expression) || ((Expression) stmt).statementExpression()) {
-				if (this.assistNode.sourceStart >= stmt.sourceStart && this.assistNode.sourceEnd <= stmt.sourceEnd) {
-					element.add(stmt, 0);
-					this.lastCheckPoint = stmt.sourceEnd + 1;
-					this.isOrphanCompletionNode = false;
-				}
-			}
-			continue;
-		}
 		if (node instanceof ImportReference){
 			ImportReference importRef = (ImportReference) node;
 			element = element.add(importRef, 0);
@@ -329,23 +259,17 @@ public RecoveredElement buildInitialRecoveryState(){
 		}
 	}
 	if (this.currentToken == TokenNameRBRACE) {
-		 if (isIndirectlyInsideLambdaExpression())
-			 this.ignoreNextClosingBrace = true;
-		 else 
-			 this.currentToken = 0; // closing brace has already been taken care of
+		this.currentToken = 0; // closing brace has already been taken care of
 	}
 
 	/* might need some extra block (after the last reduced node) */
-	/* For block bodied lambdas we should create a block even though the lambda header appears before it, so elements from within don't get misattributed. */
 	int pos = this.assistNode == null ? this.lastCheckPoint : this.assistNode.sourceStart;
-	boolean createLambdaBlock = lastNode instanceof LambdaExpression && ((LambdaExpression) node).body() instanceof Block;
 	for (int j = blockIndex; j <= this.realBlockPtr; j++){
 		if (this.blockStarts[j] >= 0) {
-			if ((this.blockStarts[j] < pos || createLambdaBlock) && (this.blockStarts[j] != lastStart)){ // avoid multiple block if at same position
+			if ((this.blockStarts[j] < pos) && (this.blockStarts[j] != lastStart)){ // avoid multiple block if at same position
 				block = new Block(0);
 				block.sourceStart = lastStart = this.blockStarts[j];
 				element = element.add(block, 1);
-				createLambdaBlock = false;
 			}
 		} else {
 			if ((this.blockStarts[j] < pos)){ // avoid multiple block if at same position
@@ -431,114 +355,9 @@ protected void consumeExitMemberValue() {
 	super.consumeExitMemberValue();
 	popElement(K_ATTRIBUTE_VALUE_DELIMITER);
 }
-
 protected void consumeExplicitConstructorInvocation(int flag, int recFlag) {
 	super.consumeExplicitConstructorInvocation(flag, recFlag);
 	popElement(K_SELECTOR);
-}
-
-protected boolean triggerRecoveryUponLambdaClosure(Statement statement, boolean shouldCommit) {
-	// Last block statement reduced is required to be on the AST stack top.
-	boolean lambdaClosed = false;
-	int statementStart, statementEnd;
-	statementStart = statement.sourceStart;
-	statementEnd = statement instanceof AbstractVariableDeclaration ? ((AbstractVariableDeclaration)statement).declarationSourceEnd : statement.sourceEnd;
-	for (int i = this.elementPtr; i >= 0; --i) {
-		if (this.elementKindStack[i] != K_LAMBDA_EXPRESSION_DELIMITER)
-			continue;
-		LambdaExpression expression = (LambdaExpression) this.elementObjectInfoStack[i];
-		if (expression.sourceStart >= statementStart && expression.sourceEnd <= statementEnd) {
-			this.elementPtr = i - 1;
-			lambdaClosed = true;
-		} else {
-			if (shouldCommit) {
-				int stackLength = this.stack.length;
-				if (++this.stateStackTop >= stackLength) {
-					System.arraycopy(
-							this.stack, 0,
-							this.stack = new int[stackLength + StackIncrement], 0,
-							stackLength);
-				}
-				this.stack[this.stateStackTop] = this.unstackedAct;
-				commit();
-				this.stateStackTop --;
-			}
-			return false;
-		}
-	}
-	
-	if (lambdaClosed && this.currentElement != null) {
-		this.restartRecovery = true;
-		if (!(statement instanceof AbstractVariableDeclaration)) { // added already as part of standard recovery since these contribute a name to the scope prevailing at the cursor.
-			/* See if CompletionParser.attachOrphanCompletionNode has already added bits and pieces of AST to the recovery tree. If so, we want to
-			   replace those fragments with the fuller statement that provides target type for the lambda that got closed just now. There is prior
-			   art/precedent in the Java 7 world to this: Search for recoveredBlock.statements[--recoveredBlock.statementCount] = null;
-			   See also that this concern does not arise in the case of field/local initialization since the initializer is replaced with full tree by consumeExitVariableWithInitialization.
-			*/
-			RecoveredBlock recoveredBlock = (RecoveredBlock) (this.currentElement instanceof RecoveredBlock ? this.currentElement : 
-				(this.currentElement.parent instanceof RecoveredBlock) ? this.currentElement.parent : 
-					this.currentElement instanceof RecoveredMethod ? ((RecoveredMethod) this.currentElement).methodBody : null);
-			if (recoveredBlock != null) {
-				RecoveredStatement recoveredStatement = recoveredBlock.statementCount > 0 ? recoveredBlock.statements[recoveredBlock.statementCount - 1] : null;
-				ASTNode parseTree = recoveredStatement != null ? recoveredStatement.updatedStatement(0, new HashSet()) : null;
-				if (parseTree != null) {
-					if ((parseTree.sourceStart == 0 || parseTree.sourceEnd == 0) || (parseTree.sourceStart >= statementStart && parseTree.sourceEnd <= statementEnd)) {
-						recoveredBlock.statements[recoveredBlock.statementCount - 1] = new RecoveredStatement(statement, recoveredBlock, 0);
-						statement = null;
-					} else if (recoveredStatement instanceof RecoveredLocalVariable && statement instanceof Expression) {
-						RecoveredLocalVariable local = (RecoveredLocalVariable) recoveredStatement;
-						if (local.localDeclaration != null && local.localDeclaration.initialization != null) {
-							if ((local.localDeclaration.initialization.sourceStart == 0 || local.localDeclaration.initialization.sourceEnd == 0) || 
-							        (local.localDeclaration.initialization.sourceStart >= statementStart && local.localDeclaration.initialization.sourceEnd <= statementEnd) ){
-								local.localDeclaration.initialization = (Expression) statement;
-								local.localDeclaration.declarationSourceEnd = statement.sourceEnd;
-								local.localDeclaration.declarationEnd = statement.sourceEnd;
-								statement = null;
-							}
-						}
-					}
-				}
-			}
-			
-			if (statement != null) {
-				while (this.currentElement != null) {
-					ASTNode tree = this.currentElement.parseTree();
-					if (tree.sourceStart < statement.sourceStart) {
-						this.currentElement.add(statement, 0);
-						break;
-					}
-					this.currentElement = this.currentElement.parent;
-				}
-			}
-		}
-	}
-	this.snapShot = null;
-	return lambdaClosed;
-}
-protected ASTNode assistNodeParent() {
-	return null;
-}
-protected ASTNode enclosingNode() {
-	return null;
-}
-
-protected boolean isAssistParser() {
-	return true;
-}
-protected void consumeBlockStatement() {
-	super.consumeBlockStatement();
-	triggerRecoveryUponLambdaClosure((Statement) this.astStack[this.astPtr], true);
-}
-protected void consumeBlockStatements() {
-	super.consumeBlockStatements();
-	triggerRecoveryUponLambdaClosure((Statement) this.astStack[this.astPtr], true);
-}
-protected void consumeFieldDeclaration() {
-	super.consumeFieldDeclaration();
-	if (triggerRecoveryUponLambdaClosure((Statement) this.astStack[this.astPtr], true)) {
-		if (this.currentElement instanceof RecoveredType)
-			popUntilElement(K_TYPE_DELIMITER);
-	}
 }
 protected void consumeForceNoDiet() {
 	super.consumeForceNoDiet();
@@ -562,21 +381,15 @@ protected void consumeInterfaceHeader() {
 	super.consumeInterfaceHeader();
 	pushOnElementStack(K_TYPE_DELIMITER);
 }
-@Override
-protected void consumeNestedLambda() {
-	super.consumeNestedLambda();
-	LambdaExpression lexp = (LambdaExpression) this.astStack[this.astPtr];
-	pushOnElementStack(K_LAMBDA_EXPRESSION_DELIMITER, EXPRESSION_BODY, lexp);
-}
 protected void consumeMethodBody() {
 	super.consumeMethodBody();
 	popElement(K_METHOD_DELIMITER);
 }
-protected void consumeMethodDeclaration(boolean isNotAbstract, boolean isDefaultMethod) {
+protected void consumeMethodDeclaration(boolean isNotAbstract) {
 	if (!isNotAbstract) {
 		popElement(K_METHOD_DELIMITER);
 	}
-	super.consumeMethodDeclaration(isNotAbstract, isDefaultMethod);
+	super.consumeMethodDeclaration(isNotAbstract);
 }
 protected void consumeMethodHeader() {
 	super.consumeMethodHeader();
@@ -636,32 +449,16 @@ protected void consumeNestedMethod() {
 }
 protected void consumeOpenBlock() {
 	// OpenBlock ::= $empty
-	super.consumeOpenBlock();
 
+	super.consumeOpenBlock();
 	int stackLength = this.blockStarts.length;
 	if (this.realBlockPtr >= stackLength) {
 		System.arraycopy(
-				this.blockStarts, 0,
-				this.blockStarts = new int[stackLength + StackIncrement], 0,
-				stackLength);
+			this.blockStarts, 0,
+			this.blockStarts = new int[stackLength + StackIncrement], 0,
+			stackLength);
 	}
 	this.blockStarts[this.realBlockPtr] = this.scanner.startPosition;
-	if (requireExtendedRecovery()) {
-		// This is an epsilon production: We are in the state with kernel item: Block ::= .OpenBlock LBRACE BlockStatementsopt RBRACE
-		if (this.currentToken == TokenNameLBRACE && this.unstackedAct > NUM_RULES) { // wait for chain reductions to finish before commit.
-			stackLength = this.stack.length;
-			if (++this.stateStackTop >= stackLength - 1) {   // Need two slots.
-				System.arraycopy(
-						this.stack, 0,
-						this.stack = new int[stackLength + StackIncrement], 0,
-						stackLength);
-			}
-			this.stack[this.stateStackTop++] = this.unstackedAct; // transition to Block ::= OpenBlock  .LBRACE BlockStatementsopt RBRACE
-			this.stack[this.stateStackTop] = tAction(this.unstackedAct, this.currentToken); // transition to Block ::= OpenBlock LBRACE  .BlockStatementsopt RBRACE 
-			commit();
-			this.stateStackTop -= 2;
-		}
-	}
 }
 protected void consumeOpenFakeBlock() {
 	// OpenBlock ::= $empty
@@ -788,7 +585,6 @@ protected void consumeRestoreDiet() {
 	// if we are not in a method (i.e. we were not in a local variable initializer)
 	// then we are exiting a field initializer
 	if (!isInsideMethod()) {
-		popUntilElement(K_FIELD_INITIALIZER_DELIMITER);
 		popElement(K_FIELD_INITIALIZER_DELIMITER);
 	}
 }
@@ -989,10 +785,6 @@ protected void consumeToken(int token) {
 				}
 				break;
 			case TokenNameLBRACE:
-				if (this.previousToken == TokenNameARROW) {
-					popElement(K_LAMBDA_EXPRESSION_DELIMITER);
-					pushOnElementStack(K_LAMBDA_EXPRESSION_DELIMITER, BLOCK_BODY, this.previousObjectInfo);
-				}
 				this.bracketDepth++;
 				break;
 			case TokenNameLBRACKET:
@@ -1270,8 +1062,6 @@ protected NameReference getUnspecifiedReferenceOptimized() {
 		return super.getUnspecifiedReferenceOptimized();
 	}
 
-	consumeNonTypeUseName();
-	
 	/* retrieve identifiers subset and whole positions, the completion node positions
 		should include the entire replaced source. */
 	int length = this.identifierLengthStack[this.identifierLengthPtr];
@@ -1378,8 +1168,8 @@ public void initialize() {
 	this.previousIdentifierPtr = -1;
 	this.bracketDepth = 0;
 }
-public void initialize(boolean parsingCompilationUnit) {
-	super.initialize(parsingCompilationUnit);
+public void initialize(boolean initializeNLS) {
+	super.initialize(initializeNLS);
 	flushAssistState();
 	flushElementStack();
 	this.previousIdentifierPtr = -1;
@@ -1399,24 +1189,6 @@ protected boolean isIndirectlyInsideMethod(){
 	int i = this.elementPtr;
 	while(i > -1) {
 		if(this.elementKindStack[i] == K_METHOD_DELIMITER)
-			return true;
-		i--;
-	}
-	return false;
-}
-protected boolean isIndirectlyInsideLambdaExpression(){
-	int i = this.elementPtr;
-	while (i > -1) {
-		if (this.elementKindStack[i] == K_LAMBDA_EXPRESSION_DELIMITER)
-			return true;
-		i--;
-	}
-	return false;
-}
-protected boolean isIndirectlyInsideLambdaBlock(){
-	int i = this.elementPtr;
-	while (i > -1) {
-		if (this.elementKindStack[i] == K_LAMBDA_EXPRESSION_DELIMITER && this.elementInfoStack[i] == BLOCK_BODY)
 			return true;
 		i--;
 	}
@@ -1623,7 +1395,6 @@ public void parseBlockStatements(
 		initializer.bits |= ASTNode.HasLocalType;
 	}
 }
-
 /**
  * Parse the block statements inside the given method declaration and try to complete at the
  * cursor location.
@@ -1685,36 +1456,21 @@ public void parseBlockStatements(MethodDeclaration md, CompilationUnitDeclaratio
 	}
 
 }
+protected void popElement(int kind){
+	if(this.elementPtr < 0 || this.elementKindStack[this.elementPtr] != kind) return;
 
-// the name is a misnomer, we allow "pop"s not just at the TOS. Lambda wants to be sticky till fully reduced, however we do want other elements poppped at the right point, so ... 
-protected void popElement(int kind) {
-	
-	if (this.elementPtr < 0)
-		return;
-	
-	int stackPointer = this.elementPtr;
+	this.previousKind = this.elementKindStack[this.elementPtr];
+	this.previousInfo = this.elementInfoStack[this.elementPtr];
+	this.previousObjectInfo = this.elementObjectInfoStack[this.elementPtr];
 
-	if (kind != K_LAMBDA_EXPRESSION_DELIMITER) {
-		while (this.elementKindStack[stackPointer] == K_LAMBDA_EXPRESSION_DELIMITER) {
-			stackPointer --;
-		}
-	}
-	if (stackPointer < 0 || this.elementKindStack[stackPointer] != kind)
-		return;
-	
-	this.previousKind = this.elementKindStack[stackPointer];
-	this.previousInfo = this.elementInfoStack[stackPointer];
-	this.previousObjectInfo = this.elementObjectInfoStack[stackPointer];
-
-	final int length = this.elementPtr - stackPointer;
-	if (length > 0) {
-		System.arraycopy(this.elementKindStack, stackPointer + 1, this.elementKindStack, stackPointer, length);
-		System.arraycopy(this.elementInfoStack, stackPointer + 1, this.elementInfoStack, stackPointer, length);
-		System.arraycopy(this.elementObjectInfoStack, stackPointer + 1, this.elementObjectInfoStack, stackPointer, length);
-	}
 	this.elementObjectInfoStack[this.elementPtr] = null;
-	this.elementPtr--;
- }
+
+	switch (kind) {
+		default :
+			this.elementPtr--;
+			break;
+	}
+}
 protected void popUntilElement(int kind){
 	if(this.elementPtr < 0) return;
 	int i = this.elementPtr;
@@ -1770,11 +1526,6 @@ protected void prepareForHeaders() {
 		flushElementStack();
 	}
 }
-
-public boolean requireExtendedRecovery() {
-	return lastIndexOfElement(K_LAMBDA_EXPRESSION_DELIMITER) >= 0;
-}
-
 protected void pushOnElementStack(int kind){
 	this.pushOnElementStack(kind, 0, null);
 }
@@ -1837,7 +1588,7 @@ public void recoveryTokenCheck() {
 			break;
 		case TokenNameRBRACE :
 			super.recoveryTokenCheck();
-			if(this.currentElement != oldElement && !isInsideAttributeValue() && !isIndirectlyInsideLambdaExpression()) {
+			if(this.currentElement != oldElement && !isInsideAttributeValue()) {
 				if(oldElement instanceof RecoveredInitializer
 					|| oldElement instanceof RecoveredMethod
 					|| (oldElement instanceof RecoveredBlock && oldElement.parent instanceof RecoveredInitializer)
@@ -1869,42 +1620,22 @@ public void reset(){
  * Move checkpoint location, reset internal stacks and
  * decide which grammar goal is activated.
  */
-protected int resumeAfterRecovery() {
-	if (requireExtendedRecovery()) {
-		if (this.unstackedAct == ERROR_ACTION) {
-			int mode = fallBackToSpringForward((Statement) null);
-			this.resumedAfterRepair = mode == RESUME;
-			if (mode == RESUME || mode == HALT)
-				return mode;
-			// else fall through and RESTART
-		} else {
-			if (this.currentToken == TokenNameLBRACE)
-				this.ignoreNextOpeningBrace = true;  // already accounted for in recovery token check.
-			return RESUME;
-		}
-	}
-		
+protected boolean resumeAfterRecovery() {
+
 	// reset internal stacks
 	this.astPtr = -1;
 	this.astLengthPtr = -1;
 	this.expressionPtr = -1;
 	this.expressionLengthPtr = -1;
-	this.typeAnnotationLengthPtr = -1;
-	this.typeAnnotationPtr = -1;
-	
 	this.identifierPtr = -1;
 	this.identifierLengthPtr	= -1;
 	this.intPtr = -1;
-	
-	
 	this.dimensions = 0 ;
 	this.recoveredStaticInitializerStart = 0;
 
 	this.genericsIdentifiersLengthPtr = -1;
 	this.genericsLengthPtr = -1;
 	this.genericsPtr = -1;
-	
-	this.valueLambdaNestDepth = -1;
 
 	this.modifiers = ClassFileConstants.AccDefault;
 	this.modifiersSourceStart = -1;
@@ -1913,12 +1644,7 @@ protected int resumeAfterRecovery() {
 	if (this.diet) this.dietInt = 0;
 
 	/* attempt to move checkpoint location */
-	if (this.unstackedAct != ERROR_ACTION && this.resumedAfterRepair) {
-		this.scanner.ungetToken(this.currentToken);  // effectively move recovery checkpoint *backwards*.
-	} else {
-		if (!moveRecoveryCheckpoint()) return HALT;
-	}
-	this.resumedAfterRepair = false;
+	if (!moveRecoveryCheckpoint()) return false;
 
 	// only look for headers
 	if (this.referenceContext instanceof CompilationUnitDeclaration
@@ -1939,7 +1665,7 @@ protected int resumeAfterRecovery() {
 			goForHeaders();
 			this.diet = true; // passed this point, will not consider method bodies
 		}
-		return RESTART;
+		return true;
 	}
 	if (this.referenceContext instanceof AbstractMethodDeclaration
 		|| this.referenceContext instanceof TypeDeclaration){
@@ -1951,10 +1677,10 @@ protected int resumeAfterRecovery() {
 			prepareForBlockStatements();
 			goForBlockStatementsOrCatchHeader();
 		}
-		return RESTART;
+		return true;
 	}
 	// does not know how to restart
-	return HALT;
+	return false;
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=292087
 // To be implemented in children viz. CompletionParser that are aware of array initializers

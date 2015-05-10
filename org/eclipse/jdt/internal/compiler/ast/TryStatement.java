@@ -21,9 +21,6 @@
  *								bug 384380 - False positive on a ?? Potential null pointer access ?? after a continue
  *     Jesper Steen Moller - Contributions for
  *								bug 404146 - [1.7][compiler] nested try-catch-finally-blocks leads to unrunnable Java byte code
- *     Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
- *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
- *
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -494,10 +491,10 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream) {
 			ExceptionLabel exceptionLabel = null;
 			if ((argument.binding.tagBits & TagBits.MultiCatchParameter) != 0) {
 				MultiCatchExceptionLabel multiCatchExceptionLabel = new MultiCatchExceptionLabel(codeStream, argument.binding.type);
-				multiCatchExceptionLabel.initialize((UnionTypeReference) argument.type, argument.annotations);
+				multiCatchExceptionLabel.initialize((UnionTypeReference) argument.type);
 				exceptionLabel = multiCatchExceptionLabel;
 			} else {
-				exceptionLabel = new ExceptionLabel(codeStream, argument.binding.type, argument.type, argument.annotations);
+				exceptionLabel = new ExceptionLabel(codeStream, argument.binding.type);
 			}
 			exceptionLabel.placeStart();
 			exceptionLabels[i] = exceptionLabel;
@@ -1058,9 +1055,8 @@ public void resolve(BlockScope upperScope) {
 			this.anyExceptionVariable.setConstant(Constant.NotAConstant); // not inlinable
 
 			if (!methodScope.isInsideInitializer()) {
-				MethodBinding methodBinding = methodScope.referenceContext instanceof AbstractMethodDeclaration ?
-					((AbstractMethodDeclaration) methodScope.referenceContext).binding : (methodScope.referenceContext instanceof LambdaExpression ? 
-							((LambdaExpression)methodScope.referenceContext).binding : null);
+				MethodBinding methodBinding =
+					((AbstractMethodDeclaration) methodScope.referenceContext).binding;
 				if (methodBinding != null) {
 					TypeBinding methodReturnType = methodBinding.returnType;
 					if (methodReturnType.id != TypeIds.T_void) {

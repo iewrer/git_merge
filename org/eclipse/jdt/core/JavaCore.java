@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -98,10 +98,6 @@
  *									COMPILER_INHERIT_NULL_ANNOTATIONS
  *									COMPILER_PB_NONNULL_PARAMETER_ANNOTATION_DROPPED
  *									COMPILER_PB_SYNTACTIC_NULL_ANALYSIS_FOR_FIELDS
- *     Jesper S Moller   - Contributions for bug 381345 : [1.8] Take care of the Java 8 major version
- *                       - added the following constants:
- *									COMPILER_CODEGEN_METHOD_PARAMETERS_ATTR
- *     
  *******************************************************************************/
 
 package org.eclipse.jdt.core;
@@ -173,7 +169,6 @@ import org.osgi.framework.BundleContext;
  * </p>
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
-@SuppressWarnings({ "unchecked", "rawtypes" })
 public final class JavaCore extends Plugin {
 
 	private static final IResource[] NO_GENERATED_RESOURCES = new IResource[0];
@@ -270,20 +265,6 @@ public final class JavaCore extends Plugin {
 	 * @category CompilerOptionID
 	 */
 	public static final String COMPILER_CODEGEN_UNUSED_LOCAL = PLUGIN_ID + ".compiler.codegen.unusedLocal"; //$NON-NLS-1$
-	/**
-	 * Compiler option ID: Generating Method Parameters Attribute.
-	 * <p>When generated, this attribute will enable information about the formal parameters of a method
-	 * (such as their names) to be accessed from reflection libraries, annotation processing,
-	 * code weaving, and in the debugger, from platform target level 1.8 and later.</p>
-	 * <dl>
-	 * <dt>Option id:</dt><dd><code>"org.eclipse.jdt.core.compiler.codegen.methodParameters"</code></dd>
-	 * <dt>Possible values:</dt><dd><code>{ "generate", "do not generate" }</code></dd>
-	 * <dt>Default:</dt><dd><code>"do not generate"</code></dd>
-	 * </dl>
-	 * @since 3.10
-	 * @category CompilerOptionID
-	 */
-	public static final String COMPILER_CODEGEN_METHOD_PARAMETERS_ATTR = PLUGIN_ID + ".compiler.codegen.methodParameters"; //$NON-NLS-1$
 	/**
 	 * Compiler option ID: Defining Target Java Platform.
 	 * <p>For binary compatibility reason, .class files can be tagged to with certain VM versions and later.</p>
@@ -946,10 +927,9 @@ public final class JavaCore extends Plugin {
 	 */
 	public static final String COMPILER_PB_RAW_TYPE_REFERENCE = PLUGIN_ID + ".compiler.problem.rawTypeReference"; //$NON-NLS-1$
 	/**
-	 * Compiler option ID: Reporting of Unavoidable Generic Type Problems due to raw APIs.
-	 * <p> When enabled, the compiler will issue an error or warning even when it detects a generics-related type problem
-	 *     that could not have been avoided by the programmer, because a referenced API already contains raw types.
-	 *     As an example, a type may be forced to use raw types
+	 * Compiler option ID: Reporting of Unavoidable Generic Type Problems.
+	 * <p> When enabled, the compiler will issue an error or warning even when it detects a generic type problem
+	 *     that could not have been avoided by the programmer. As an example, a type may be forced to use raw types
 	 *     in its method signatures and return types because the methods it overrides from a super type are declared to
 	 *     use raw types in the first place.</p>
 	 * <dl>
@@ -2661,12 +2641,6 @@ public final class JavaCore extends Plugin {
 	public static final String VERSION_1_7 = "1.7"; //$NON-NLS-1$
 	/**
 	 * Configurable option value: {@value}.
-	 * @since 3.10
-	 * @category OptionValue
-	 */
-	public static final String VERSION_1_8 = "1.8"; //$NON-NLS-1$
-	/**
-	 * Configurable option value: {@value}.
 	 * @since 3.4
 	 * @category OptionValue
 	 */
@@ -4077,21 +4051,6 @@ public final class JavaCore extends Plugin {
 				// Creation of external folder project failed. Log it and continue;
 				Util.log(jme, "Error while processing external folders"); //$NON-NLS-1$
 			}
-
-			// ensure external jars are refreshed (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=93668)
-			// before search is initialized (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=405051)
-			final JavaModel model = manager.getJavaModel();
-			try {
-				if (monitor != null)
-					monitor.subTask(Messages.javamodel_refreshing_external_jars);
-				model.refreshExternalArchives(
-					null/*refresh all projects*/,
-					monitor == null ? null : new SubProgressMonitor(monitor, 1) // 1% of the time is spent in jar refresh
-				);
-			} catch (JavaModelException e) {
-				// refreshing failed: ignore
-			}
-
 			// initialize delta state
 			if (monitor != null)
 				monitor.subTask(Messages.javamodel_initializing_delta_state);
@@ -4146,6 +4105,7 @@ public final class JavaCore extends Plugin {
 			} catch (CoreException e) {
 				// could not read version number: consider it is new
 			}
+			final JavaModel model = manager.getJavaModel();
 			String newVersionNumber = Byte.toString(State.VERSION);
 			if (!newVersionNumber.equals(versionNumber)) {
 				// build state version number has changed: touch every projects to force a rebuild
@@ -4179,6 +4139,19 @@ public final class JavaCore extends Plugin {
 					Util.log(e, "Could not persist build state version number"); //$NON-NLS-1$
 				}
 			}
+
+			// ensure external jars are refreshed (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=93668)
+			try {
+				if (monitor != null)
+					monitor.subTask(Messages.javamodel_refreshing_external_jars);
+				model.refreshExternalArchives(
+					null/*refresh all projects*/,
+					monitor == null ? null : new SubProgressMonitor(monitor, 1) // 1% of the time is spent in jar refresh
+				);
+			} catch (JavaModelException e) {
+				// refreshing failed: ignore
+			}
+
 		} finally {
 			if (monitor != null) monitor.done();
 		}
@@ -5586,15 +5559,6 @@ public final class JavaCore extends Plugin {
 				options.put(JavaCore.COMPILER_PB_ASSERT_IDENTIFIER, JavaCore.ERROR);
 				options.put(JavaCore.COMPILER_PB_ENUM_IDENTIFIER, JavaCore.ERROR);
 				options.put(JavaCore.COMPILER_CODEGEN_INLINE_JSR_BYTECODE, JavaCore.ENABLED);
-				break;
-			case ClassFileConstants.MAJOR_VERSION_1_8:
-				options.put(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_1_8);
-				options.put(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_1_8);
-				options.put(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_1_8);
-				options.put(JavaCore.COMPILER_PB_ASSERT_IDENTIFIER, JavaCore.ERROR);
-				options.put(JavaCore.COMPILER_PB_ENUM_IDENTIFIER, JavaCore.ERROR);
-				options.put(JavaCore.COMPILER_CODEGEN_INLINE_JSR_BYTECODE, JavaCore.ENABLED);
-				break;
 		}
 	}
 

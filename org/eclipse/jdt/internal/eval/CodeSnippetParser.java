@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -262,11 +262,11 @@ protected void consumeLocalVariableDeclarationStatement() {
  * The CSToCuMapper could not be used, since it could have interfered with
  * the syntax recovery specific to code snippets.
  */
-protected void consumeMethodDeclaration(boolean isNotAbstract, boolean isDefaultMethod) {
+protected void consumeMethodDeclaration(boolean isNotAbstract) {
 	// MethodDeclaration ::= MethodHeader MethodBody
 	// AbstractMethodDeclaration ::= MethodHeader ';'
 
-	super.consumeMethodDeclaration(isNotAbstract, isDefaultMethod);
+	super.consumeMethodDeclaration(isNotAbstract);
 
 	// now we know that we have a method declaration at the top of the ast stack
 	MethodDeclaration methodDecl = (MethodDeclaration) this.astStack[this.astPtr];
@@ -313,7 +313,7 @@ protected void consumeMethodDeclaration(boolean isNotAbstract, boolean isDefault
 			}
 			int dimCount = CharOperation.occurencesOf('[', this.evaluationContext.localVariableTypeNames[i]);
 			if (dimCount > 0) {
-				typeReference = augmentTypeWithAdditionalDimensions(typeReference, dimCount, null, false);
+				typeReference = copyDims(typeReference, dimCount);
 			}
 			NameReference init = new SingleNameReference(
 									CharOperation.concat(LOCAL_VAR_PREFIX, this.evaluationContext.localVariableNames[i]), position);
@@ -370,17 +370,6 @@ protected void consumeMethodInvocationName() {
 			this.identifierLengthPtr--;
 		} else {
 			this.identifierLengthStack[this.identifierLengthPtr]--;
-			int length = this.typeAnnotationLengthStack[this.typeAnnotationLengthPtr--];
-			Annotation [] typeAnnotations;
-			if (length != 0) {
-				System.arraycopy(
-						this.typeAnnotationStack,
-						(this.typeAnnotationPtr -= length) + 1,
-						typeAnnotations = new Annotation[length],
-						0,
-						length);
-				problemReporter().misplacedTypeAnnotations(typeAnnotations[0], typeAnnotations[typeAnnotations.length - 1]);
-			}
 			m.receiver = getUnspecifiedReference();
 			m.sourceStart = m.receiver.sourceStart;
 		}
@@ -587,7 +576,7 @@ protected CompilationUnitDeclaration endParse(int act) {
 			}
 			consumeMethodBody();
 			if (!this.diet) {
-				consumeMethodDeclaration(true, false);
+				consumeMethodDeclaration(true);
 				if (fieldsCount > 0) {
 					consumeClassBodyDeclarations();
 				}
@@ -636,11 +625,8 @@ protected CompilationUnitDeclaration endParse(int act) {
 	}
 	return super.endParse(act);
 }
-protected NameReference getUnspecifiedReference(boolean rejectTypeAnnotations) {
+protected NameReference getUnspecifiedReference() {
 	/* build a (unspecified) NameReference which may be qualified*/
-	if (rejectTypeAnnotations) {
-		consumeNonTypeUseName();
-	}
 
 	if (this.scanner.startPosition >= this.codeSnippetStart
 		&& this.scanner.startPosition <= this.codeSnippetEnd+1+this.lineSeparatorLength /*14838*/){
@@ -669,7 +655,7 @@ protected NameReference getUnspecifiedReference(boolean rejectTypeAnnotations) {
 		}
 		return ref;
 	} else {
-		return super.getUnspecifiedReference(rejectTypeAnnotations);
+		return super.getUnspecifiedReference();
 	}
 }
 protected NameReference getUnspecifiedReferenceOptimized() {
@@ -679,7 +665,6 @@ protected NameReference getUnspecifiedReferenceOptimized() {
 	a field access. This optimization is IMPORTANT while it results
 	that when a NameReference is build, the type checker should always
 	look for that it is not a type reference */
-	consumeNonTypeUseName();
 
 	if (this.scanner.startPosition >= this.codeSnippetStart
 		&& this.scanner.startPosition <= this.codeSnippetEnd+1+this.lineSeparatorLength /*14838*/){
@@ -786,9 +771,9 @@ protected void reportSyntaxErrors(boolean isDietParse, int oldFirstToken) {
  * A syntax error was detected. If a method is being parsed, records the number of errors and
  * attempts to restart from the last statement by going for an expression.
  */
-protected int resumeOnSyntaxError() {
+protected boolean resumeOnSyntaxError() {
 	if (this.diet || this.hasRecoveredOnExpression) { // no reentering inside expression recovery
-		return HALT;
+		return false;
 	}
 
 	// record previous error, in case more accurate than potential one in expression recovery
@@ -807,16 +792,14 @@ protected int resumeOnSyntaxError() {
 
 	// reset stacks in consistent state
 	this.expressionPtr = -1;
-	this.typeAnnotationLengthPtr = -1;
-	this.typeAnnotationPtr = -1;
 	this.identifierPtr = -1;
 	this.identifierLengthPtr = -1;
 
 	// go for the expression
-	goForExpression(true /* record line separators */);
+	goForExpression();
 	this.hasRecoveredOnExpression = true;
 	this.hasReportedError = false;
 	this.hasError = false;
-	return RESTART;
+	return true;
 }
 }

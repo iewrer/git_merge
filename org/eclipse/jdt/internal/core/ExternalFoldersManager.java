@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -8,8 +8,6 @@
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann <stephan@cs.tu-berlin.de> - inconsistent initialization of classpath container backed by external class folder, see https://bugs.eclipse.org/320618
- *     Thirumala Reddy Mutchukota <thirumala@google.com> - Contribution to bug: https://bugs.eclipse.org/bugs/show_bug.cgi?id=411423
- *     Terry Parker <tparker@google.com> - [performance] Low hit rates in JavaModel caches - https://bugs.eclipse.org/421165
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
 
@@ -45,7 +43,6 @@ import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.internal.core.util.Messages;
 import org.eclipse.jdt.internal.core.util.Util;
 
-@SuppressWarnings({ "rawtypes", "unchecked" })
 public class ExternalFoldersManager {
 	private static final String EXTERNAL_PROJECT_NAME = ".org.eclipse.jdt.core.external.folders"; //$NON-NLS-1$
 	private static final String LINKED_FOLDER_NAME = ".link"; //$NON-NLS-1$
@@ -70,9 +67,9 @@ public class ExternalFoldersManager {
 		return MANAGER;
 	}
 	
-	/**
-	 * Returns a set of external paths to external folders referred to on the given classpath.
-	 * Returns <code>null</code> if there are none.
+	/*
+	 * Returns a set of external path to external folders referred to on the given classpath.
+	 * Returns null if none.
 	 */
 	public static HashSet getExternalFolders(IClasspathEntry[] classpath) {
 		if (classpath == null)
@@ -98,27 +95,18 @@ public class ExternalFoldersManager {
 		return folders;
 	}
 
-	/**
-	 * Returns <code>true</code> if the provided path is a folder external to the project.
-	 */
+
 	public static boolean isExternalFolderPath(IPath externalPath) {
 		if (externalPath == null)
 			return false;
 		String firstSegment = externalPath.segment(0);
 		if (firstSegment != null && ResourcesPlugin.getWorkspace().getRoot().getProject(firstSegment).exists())
 			return false;
-		JavaModelManager manager = JavaModelManager.getJavaModelManager();
-		if (manager.isExternalFile(externalPath) || manager.isAssumedExternalFile(externalPath))
-			return false;
 		File externalFolder = externalPath.toFile();
-		if (externalFolder.isFile()) {
-			manager.addExternalFile(externalPath);
+		if (externalFolder.isFile())
 			return false;
-		}
-		if (externalPath.getFileExtension() != null/*likely a .jar, .zip, .rar or other file*/ && !externalFolder.exists()) {
-			manager.addAssumedExternalFile(externalPath);
+		if (externalPath.getFileExtension() != null/*likely a .jar, .zip, .rar or other file*/ && !externalFolder.exists())
 			return false;
-		}
 		return true;
 	}
 

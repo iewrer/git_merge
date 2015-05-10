@@ -9,8 +9,6 @@
  *     IBM Corporation - initial API and implementation
  *     Jesper S Moller <jesper@selskabet.org> - Contributions for
  *								bug 378674 - "The method can be declared as static" is wrong
- *     Stephan Herrmann - Contribution for
- *								Bug 424167 - [1.8] Fully integrate type inference with overload resolution     
  *******************************************************************************/
 package org.eclipse.jdt.internal.eval;
 
@@ -73,14 +71,14 @@ public final boolean canBeSeenByForCodeSnippet(FieldBinding fieldBinding, TypeBi
 	if (fieldBinding.isPublic()) return true;
 
 	ReferenceBinding invocationType = (ReferenceBinding) receiverType;
-	if (TypeBinding.equalsEquals(invocationType, fieldBinding.declaringClass)) return true;
+	if (invocationType == fieldBinding.declaringClass) return true;
 
 	if (fieldBinding.isProtected()) {
 		// answer true if the invocationType is the declaringClass or they are in the same package
 		// OR the invocationType is a subclass of the declaringClass
 		//    AND the receiverType is the invocationType or its subclass
 		//    OR the field is a static field accessed directly through a type
-		if (TypeBinding.equalsEquals(invocationType, fieldBinding.declaringClass)) return true;
+		if (invocationType == fieldBinding.declaringClass) return true;
 		if (invocationType.fPackage == fieldBinding.declaringClass.fPackage) return true;
 		if (fieldBinding.declaringClass.isSuperclassOf(invocationType)) {
 			if (invocationSite.isSuperAccess()) return true;
@@ -98,9 +96,9 @@ public final boolean canBeSeenByForCodeSnippet(FieldBinding fieldBinding, TypeBi
 	if (fieldBinding.isPrivate()) {
 		// answer true if the receiverType is the declaringClass
 		// AND the invocationType and the declaringClass have a common enclosingType
-		if (TypeBinding.notEquals(receiverType, fieldBinding.declaringClass)) return false;
+		if (receiverType != fieldBinding.declaringClass) return false;
 
-		if (TypeBinding.notEquals(invocationType, fieldBinding.declaringClass)) {
+		if (invocationType != fieldBinding.declaringClass) {
 			ReferenceBinding outerInvocationType = invocationType;
 			ReferenceBinding temp = outerInvocationType.enclosingType();
 			while (temp != null) {
@@ -114,7 +112,7 @@ public final boolean canBeSeenByForCodeSnippet(FieldBinding fieldBinding, TypeBi
 				outerDeclaringClass = temp;
 				temp = temp.enclosingType();
 			}
-			if (TypeBinding.notEquals(outerInvocationType, outerDeclaringClass)) return false;
+			if (outerInvocationType != outerDeclaringClass) return false;
 		}
 		return true;
 	}
@@ -130,9 +128,9 @@ public final boolean canBeSeenByForCodeSnippet(FieldBinding fieldBinding, TypeBi
 	TypeBinding originalDeclaringClass = fieldBinding.declaringClass .original();
 	do {
 		if (type.isCapture()) { // https://bugs.eclipse.org/bugs/show_bug.cgi?id=285002
-			if (TypeBinding.equalsEquals(originalDeclaringClass, type.erasure().original())) return true;	
+			if (originalDeclaringClass == type.erasure().original()) return true;	
 		} else {
-			if (TypeBinding.equalsEquals(originalDeclaringClass, type.original())) return true;
+			if (originalDeclaringClass == type.original()) return true;
 		}
 		if (declaringPackage != type.fPackage) return false;
 	} while ((type = type.superclass()) != null);
@@ -148,14 +146,14 @@ public final boolean canBeSeenByForCodeSnippet(MethodBinding methodBinding, Type
 	if (methodBinding.isPublic()) return true;
 
 	ReferenceBinding invocationType = (ReferenceBinding) receiverType;
-	if (TypeBinding.equalsEquals(invocationType, methodBinding.declaringClass)) return true;
+	if (invocationType == methodBinding.declaringClass) return true;
 
 	if (methodBinding.isProtected()) {
 		// answer true if the invocationType is the declaringClass or they are in the same package
 		// OR the invocationType is a subclass of the declaringClass
 		//    AND the receiverType is the invocationType or its subclass
 		//    OR the method is a static method accessed directly through a type
-		if (TypeBinding.equalsEquals(invocationType, methodBinding.declaringClass)) return true;
+		if (invocationType == methodBinding.declaringClass) return true;
 		if (invocationType.fPackage == methodBinding.declaringClass.fPackage) return true;
 		if (methodBinding.declaringClass.isSuperclassOf(invocationType)) {
 			if (invocationSite.isSuperAccess()) return true;
@@ -173,9 +171,9 @@ public final boolean canBeSeenByForCodeSnippet(MethodBinding methodBinding, Type
 	if (methodBinding.isPrivate()) {
 		// answer true if the receiverType is the declaringClass
 		// AND the invocationType and the declaringClass have a common enclosingType
-		if (TypeBinding.notEquals(receiverType, methodBinding.declaringClass)) return false;
+		if (receiverType != methodBinding.declaringClass) return false;
 
-		if (TypeBinding.notEquals(invocationType, methodBinding.declaringClass)) {
+		if (invocationType != methodBinding.declaringClass) {
 			ReferenceBinding outerInvocationType = invocationType;
 			ReferenceBinding temp = outerInvocationType.enclosingType();
 			while (temp != null) {
@@ -189,7 +187,7 @@ public final boolean canBeSeenByForCodeSnippet(MethodBinding methodBinding, Type
 				outerDeclaringClass = temp;
 				temp = temp.enclosingType();
 			}
-			if (TypeBinding.notEquals(outerInvocationType, outerDeclaringClass)) return false;
+			if (outerInvocationType != outerDeclaringClass) return false;
 		}
 		return true;
 	}
@@ -205,9 +203,9 @@ public final boolean canBeSeenByForCodeSnippet(MethodBinding methodBinding, Type
 	TypeBinding originalDeclaringClass = methodBinding.declaringClass .original();
 	do {
 		if (type.isCapture()) { // https://bugs.eclipse.org/bugs/show_bug.cgi?id=285002
-			if (TypeBinding.equalsEquals(originalDeclaringClass, type.erasure().original())) return true;
+			if (originalDeclaringClass == type.erasure().original()) return true;
 		} else {
-			if (TypeBinding.equalsEquals(originalDeclaringClass, type.original())) return true;
+			if (originalDeclaringClass == type.original()) return true;
 		}
 		if (declaringPackage != type.fPackage) return false;
 	} while ((type = type.superclass()) != null);
@@ -223,7 +221,7 @@ public final boolean canBeSeenByForCodeSnippet(MethodBinding methodBinding, Type
 public final boolean canBeSeenByForCodeSnippet(ReferenceBinding referenceBinding, ReferenceBinding receiverType) {
 	if (referenceBinding.isPublic()) return true;
 
-	if (TypeBinding.equalsEquals(receiverType, referenceBinding)) return true;
+	if (receiverType == referenceBinding) return true;
 
 	if (referenceBinding.isProtected()) {
 		// answer true if the receiver (or its enclosing type) is the superclass
@@ -249,7 +247,7 @@ public final boolean canBeSeenByForCodeSnippet(ReferenceBinding referenceBinding
 			outerDeclaringClass = temp;
 			temp = temp.enclosingType();
 		}
-		return TypeBinding.equalsEquals(outerInvocationType, outerDeclaringClass);
+		return outerInvocationType == outerDeclaringClass;
 	}
 
 	// isDefault()
@@ -371,8 +369,8 @@ public FieldBinding findFieldForCodeSnippet(TypeBinding receiverType, char[] fie
 	return null;
 }
 // Internal use only
-public MethodBinding findMethod(ReferenceBinding receiverType, char[] selector, TypeBinding[] argumentTypes, InvocationSite invocationSite, boolean inStaticContext) {
-	MethodBinding methodBinding = super.findMethod(receiverType, selector, argumentTypes, invocationSite, inStaticContext);
+public MethodBinding findMethod(ReferenceBinding receiverType, char[] selector, TypeBinding[] argumentTypes, InvocationSite invocationSite) {
+	MethodBinding methodBinding = super.findMethod(receiverType, selector, argumentTypes, invocationSite);
 	if (methodBinding != null && methodBinding.isValidBinding())
 		if (!canBeSeenByForCodeSnippet(methodBinding, receiverType, invocationSite, this))
 			return new ProblemMethodBinding(methodBinding, selector, argumentTypes, ProblemReasons.NotVisible);
@@ -392,11 +390,11 @@ public MethodBinding findMethodForArray(ArrayBinding receiverType, char[] select
 	}
 
 	// answers closest approximation, may not check argumentTypes or visibility
-	methodBinding = findMethod(object, selector, argumentTypes, invocationSite, false);
+	methodBinding = findMethod(object, selector, argumentTypes, invocationSite);
 	if (methodBinding == null)
 		return new ProblemMethodBinding(selector, argumentTypes, ProblemReasons.NotFound);
 	if (methodBinding.isValidBinding()) {
-	    MethodBinding compatibleMethod = computeCompatibleMethod(methodBinding, argumentTypes, invocationSite, Scope.FULL_INFERENCE);
+	    MethodBinding compatibleMethod = computeCompatibleMethod(methodBinding, argumentTypes, invocationSite);
 	    if (compatibleMethod == null)
 			return new ProblemMethodBinding(methodBinding, selector, argumentTypes, ProblemReasons.NotFound);
 	    methodBinding = compatibleMethod;
@@ -542,7 +540,7 @@ public MethodBinding getConstructor(ReferenceBinding receiverType, TypeBinding[]
 	MethodBinding[] compatible = new MethodBinding[methods.length];
 	int compatibleIndex = 0;
 	for (int i = 0, length = methods.length; i < length; i++) {
-	    MethodBinding compatibleMethod = computeCompatibleMethod(methods[i], argumentTypes, invocationSite, Scope.APPLICABILITY);
+	    MethodBinding compatibleMethod = computeCompatibleMethod(methods[i], argumentTypes, invocationSite);
 		if (compatibleMethod != null)
 			compatible[compatibleIndex++] = compatibleMethod;
 	}
@@ -558,8 +556,7 @@ public MethodBinding getConstructor(ReferenceBinding receiverType, TypeBinding[]
 		}
 	}
 	if (visibleIndex == 1) {
-		// 1.8: Give inference a chance to perform outstanding tasks (18.5.2):
-		return inferInvocationType(invocationSite, visible[0], argumentTypes);
+		return visible[0];
 	}
 	if (visibleIndex == 0) {
 		return new ProblemMethodBinding(compatible[0], TypeConstants.INIT, compatible[0].parameters, ProblemReasons.NotVisible);
@@ -603,7 +600,7 @@ public MethodBinding getImplicitMethod(ReferenceBinding receiverType, char[] sel
 	// retrieve an exact visible match (if possible)
 	MethodBinding methodBinding = findExactMethod(receiverType, selector, argumentTypes, invocationSite);
 	if (methodBinding == null)
-		methodBinding = findMethod(receiverType, selector, argumentTypes, invocationSite, false);
+		methodBinding = findMethod(receiverType, selector, argumentTypes, invocationSite);
 	if (methodBinding != null) { // skip it if we did not find anything
 		if (methodBinding.isValidBinding())
 		    if (!canBeSeenByForCodeSnippet(methodBinding, receiverType, invocationSite, this))

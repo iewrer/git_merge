@@ -25,22 +25,19 @@ public class HierarchyType implements IGenericType {
 	public int modifiers;
 	public char[] superclassName;
 	public char[][] superInterfaceNames;
-	public boolean anonymous;
 
 public HierarchyType(
 	IType typeHandle,
 	char[] name,
 	int modifiers,
 	char[] superclassName,
-	char[][] superInterfaceNames,
-	boolean anonymous) {
+	char[][] superInterfaceNames) {
 
 	this.typeHandle = typeHandle;
 	this.name = name;
 	this.modifiers = modifiers;
 	this.superclassName = superclassName;
 	this.superInterfaceNames = superInterfaceNames;
-	this.anonymous = anonymous;
 }
 /**
  * @see org.eclipse.jdt.internal.compiler.env.IDependent#getFileName()
@@ -62,11 +59,5 @@ public int getModifiers() {
  */
 public boolean isBinaryType() {
 	return false;
-}
-/** 
- * Answer whether the receiver is an anonymous type
- */
-public boolean isAnonymous() {
-	return this.anonymous;
 }
 }

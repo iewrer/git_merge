@@ -51,11 +51,6 @@ public class InitializationFlowContext extends ExceptionHandlingFlowContext {
 		}
 	}
 
-	@Override
-	public FlowContext getInitializationContext() {
-		return this;
-	}
-	
 	public String individualToString() {
 
 		StringBuffer buffer = new StringBuffer("Initialization flow context"); //$NON-NLS-1$

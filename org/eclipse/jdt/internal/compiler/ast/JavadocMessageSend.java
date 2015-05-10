@@ -53,7 +53,7 @@ public class JavadocMessageSend extends MessageSend {
 		TypeBinding[] argumentTypes = Binding.NO_PARAMETERS;
 		boolean hasArgsTypeVar = false;
 		if (this.arguments != null) {
-			this.argumentsHaveErrors = false; // typeChecks all arguments
+			boolean argHasError = false; // typeChecks all arguments
 			int length = this.arguments.length;
 			argumentTypes = new TypeBinding[length];
 			for (int i = 0; i < length; i++){
@@ -64,12 +64,12 @@ public class JavadocMessageSend extends MessageSend {
 					argumentTypes[i] = argument.resolveType((BlockScope)scope);
 				}
 				if (argumentTypes[i] == null) {
-					this.argumentsHaveErrors = true;
+					argHasError = true;
 				} else if (!hasArgsTypeVar) {
 					hasArgsTypeVar = argumentTypes[i].isTypeVariable();
 				}
 			}
-			if (this.argumentsHaveErrors) {
+			if (argHasError) {
 				return null;
 			}
 		}
@@ -163,7 +163,7 @@ public class JavadocMessageSend extends MessageSend {
 		} else {
 			int length = argumentTypes.length;
 			for (int i=0; i<length; i++) {
-				if (TypeBinding.notEquals(this.binding.parameters[i].erasure(), argumentTypes[i].erasure())) {
+				if (this.binding.parameters[i].erasure() != argumentTypes[i].erasure()) {
 					MethodBinding problem = new ProblemMethodBinding(this.binding, this.selector, argumentTypes, ProblemReasons.NotFound);
 					scope.problemReporter().javadocInvalidMethod(this, problem, scope.getDeclarationModifiers());
 					break;

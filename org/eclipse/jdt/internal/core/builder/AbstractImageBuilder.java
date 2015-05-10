@@ -37,7 +37,6 @@ import java.util.*;
  * Provides the building and compilation mechanism
  * in common with the batch and incremental builders.
  */
-@SuppressWarnings({ "rawtypes", "unchecked" })
 public abstract class AbstractImageBuilder implements ICompilerRequestor, ICompilationUnitLocator {
 
 protected JavaBuilder javaBuilder;

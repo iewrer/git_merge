@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -8,9 +8,6 @@
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Ray V. (voidstar@gmail.com) - Contribution for bug 282988
- *     Jesper S Moller - Contribution for bug 402892
- *                       Contribution for bug 402818
- *     Robin Stocker - Bug 49619 - [formatting] comment formatter leaves whitespace in comments
  *******************************************************************************/
 package org.eclipse.jdt.internal.formatter;
 
@@ -56,7 +53,6 @@ import org.eclipse.text.edits.TextEdit;
  * This class is responsible for dumping formatted source
  * @since 2.1
  */
-@SuppressWarnings({ "rawtypes", "unchecked" })
 public class Scribe implements IJavaDocTagConstants {
 
 	private static final int INITIAL_SIZE = 100;
@@ -2332,7 +2328,6 @@ public class Scribe implements IJavaDocTagConstants {
 		try {
 			int read= reader.read(buf);
 			convertedSnippet = new String(buf, 0, read);
-			reader.close();
 		} catch (IOException e) {
 			// should not happen
 			CommentFormatterUtil.log(e);
@@ -2367,7 +2362,6 @@ public class Scribe implements IJavaDocTagConstants {
 						this.codeSnippetBuffer.append(buf, 0, l);
 				} while (l > 0);
 				formattedSnippet = this.codeSnippetBuffer.toString();
-				javaReader.close();
 			} catch (IOException e) {
 				// should not happen
 				CommentFormatterUtil.log(e);
@@ -3718,10 +3712,8 @@ public class Scribe implements IJavaDocTagConstants {
 						if (linesGap > 0) {
 							this.javadocGapLinesBuffer.setLength(0);
 							if (lineCount > 0) {
-								// only add trailing space if one was there before (bug 49619)
-								if (this.scanner.source[start] == ' ') {
-									this.javadocGapLinesBuffer.append(' ');
-								}
+								// TODO https://bugs.eclipse.org/bugs/show_bug.cgi?id=49619
+								this.javadocGapLinesBuffer.append( ' ');
 							}
 							for (int i = 0; i < linesGap ; i++) {
 								if (clearBlankLines && lineCount >= newLines) {
@@ -3729,9 +3721,9 @@ public class Scribe implements IJavaDocTagConstants {
 									// so remove any remaining blanks and leave
 									if (textEndPosition >= start) {
 										if (output == null) {
-											addReplaceEdit(start, textEndPosition, " "); //$NON-NLS-1$
+											addReplaceEdit(start, textEndPosition, this.javadocGapLinesBuffer.toString());
 										} else {
-											output.append(' ');
+											output.append(this.javadocGapLinesBuffer);
 										}
 									}
 									return;
@@ -3782,10 +3774,8 @@ public class Scribe implements IJavaDocTagConstants {
 				// Insert new lines as not enough was encountered while scanning the whitespaces
 				this.javadocGapLinesBuffer.setLength(0);
 				if (lineCount > 0) {
-					// only add trailing space if one was there before (bug 49619)
-					if (this.scanner.source[start] == ' ') {
-						this.javadocGapLinesBuffer.append(' ');
-					}
+					// TODO https://bugs.eclipse.org/bugs/show_bug.cgi?id=49619
+					this.javadocGapLinesBuffer.append( ' ');
 				}
 				for (int i = lineCount; i < newLines-1; i++) {
 					printJavadocNewLine(this.javadocGapLinesBuffer);
@@ -3815,10 +3805,8 @@ public class Scribe implements IJavaDocTagConstants {
 					this.javadocGapLinesBuffer.setLength(0);
 					if (this.scanner.linePtr > linePtr) {
 						if (lineCount > 0) {
-							// only add trailing space if one was there before (bug 49619)
-							if (this.scanner.source[start] == ' ') {
-								this.javadocGapLinesBuffer.append(' ');
-							}
+							// TODO https://bugs.eclipse.org/bugs/show_bug.cgi?id=49619
+							this.javadocGapLinesBuffer.append(' ');
 						}
 						this.javadocGapLinesBuffer.append(this.lineSeparator);
 						this.column = 1;
@@ -4536,11 +4524,11 @@ public class Scribe implements IJavaDocTagConstants {
 		}
     }
 
-	public void printModifiers(Annotation[] annotations, ASTVisitor visitor, int annotationSourceKind) {
-		printModifiers(annotations, visitor, annotationSourceKind, false);
+	public void printModifiers(Annotation[] annotations, ASTVisitor visitor) {
+		printModifiers(annotations, visitor, ICodeFormatterConstants.ANNOTATION_UNSPECIFIED);
 	}
 
-	public void printModifiers(Annotation[] annotations, ASTVisitor visitor, int annotationSourceKind, boolean firstIsTypeAnnotation) {
+	public void printModifiers(Annotation[] annotations, ASTVisitor visitor, int annotationSourceKind) {
 		try {
 			int annotationsLength = annotations != null ? annotations.length : 0;
 			int annotationsIndex = 0;
@@ -4548,13 +4536,11 @@ public class Scribe implements IJavaDocTagConstants {
 			int currentTokenStartPosition = this.scanner.currentPosition;
 			boolean hasComment = false;
 			boolean hasModifiers = false;
-			boolean treatNextAsTypeAnnotation = firstIsTypeAnnotation;
 			while ((this.currentToken = this.scanner.getNextToken()) != TerminalTokens.TokenNameEOF) {
 				int foundTaskCount = this.scanner.foundTaskCount;
 				int tokenStartPosition = this.scanner.getCurrentTokenStartPosition();
 				int tokenEndPosition = this.scanner.getCurrentTokenEndPosition();
 				switch(this.currentToken) {
-					case TerminalTokens.TokenNamedefault :
 					case TerminalTokens.TokenNamepublic :
 					case TerminalTokens.TokenNameprotected :
 					case TerminalTokens.TokenNameprivate :
@@ -4567,7 +4553,6 @@ public class Scribe implements IJavaDocTagConstants {
 					case TerminalTokens.TokenNamevolatile :
 					case TerminalTokens.TokenNamestrictfp :
 						hasModifiers = true;
-						treatNextAsTypeAnnotation = true;
 						print(this.scanner.currentPosition - this.scanner.startPosition, !isFirstModifier);
 						isFirstModifier = false;
 						currentTokenStartPosition = this.scanner.currentPosition;
@@ -4591,34 +4576,34 @@ public class Scribe implements IJavaDocTagConstants {
 							boolean shouldAddNewLine = false;
 							switch (annotationSourceKind) {
 								case ICodeFormatterConstants.ANNOTATION_ON_TYPE :
-									shouldAddNewLine = treatNextAsTypeAnnotation
-											? this.formatter.preferences.insert_new_line_after_type_annotation
-											: this.formatter.preferences.insert_new_line_after_annotation_on_type;
+									if (this.formatter.preferences.insert_new_line_after_annotation_on_type) {
+										shouldAddNewLine = true;
+									}
 									break;
 								case ICodeFormatterConstants.ANNOTATION_ON_FIELD :
-									shouldAddNewLine = treatNextAsTypeAnnotation
-											? this.formatter.preferences.insert_new_line_after_type_annotation
-											: this.formatter.preferences.insert_new_line_after_annotation_on_field;
+									if (this.formatter.preferences.insert_new_line_after_annotation_on_field) {
+										shouldAddNewLine = true;
+									}
 									break;
 								case ICodeFormatterConstants.ANNOTATION_ON_METHOD :
-									shouldAddNewLine = treatNextAsTypeAnnotation
-											? this.formatter.preferences.insert_new_line_after_type_annotation
-											: this.formatter.preferences.insert_new_line_after_annotation_on_method;
+									if (this.formatter.preferences.insert_new_line_after_annotation_on_method) {
+										shouldAddNewLine = true;
+									}
 									break;
 								case ICodeFormatterConstants.ANNOTATION_ON_PACKAGE :
-									shouldAddNewLine = treatNextAsTypeAnnotation
-											? this.formatter.preferences.insert_new_line_after_type_annotation
-											: this.formatter.preferences.insert_new_line_after_annotation_on_package;
+									if (this.formatter.preferences.insert_new_line_after_annotation_on_package) {
+										shouldAddNewLine = true;
+									}
 									break;
 								case ICodeFormatterConstants.ANNOTATION_ON_PARAMETER :
-									shouldAddNewLine = treatNextAsTypeAnnotation
-											? this.formatter.preferences.insert_new_line_after_type_annotation
-											: this.formatter.preferences.insert_new_line_after_annotation_on_parameter;
+									if (this.formatter.preferences.insert_new_line_after_annotation_on_parameter) {
+										shouldAddNewLine = true;
+									}
 									break;
 								case ICodeFormatterConstants.ANNOTATION_ON_LOCAL_VARIABLE :
-									shouldAddNewLine = treatNextAsTypeAnnotation
-											? this.formatter.preferences.insert_new_line_after_type_annotation
-											: this.formatter.preferences.insert_new_line_after_annotation_on_local_variable;
+									if (this.formatter.preferences.insert_new_line_after_annotation_on_local_variable) {
+										shouldAddNewLine = true;
+									}
 									break;
 								default:
 									// do nothing when no annotation formatting option specified
@@ -4938,6 +4923,53 @@ public class Scribe implements IJavaDocTagConstants {
 			}
 			print(this.scanner.currentPosition - this.scanner.startPosition, considerSpaceIfAny);
 		} catch (InvalidInputException e) {
+			throw new AbortFormatting(e);
+		}
+	}
+
+	public void printArrayQualifiedReference(int numberOfTokens, int sourceEnd) {
+		int currentTokenStartPosition = this.scanner.currentPosition;
+		int numberOfIdentifiers = 0;
+		try {
+			do {
+				printComment(CodeFormatter.K_UNKNOWN, NO_TRAILING_COMMENT);
+				switch(this.currentToken = this.scanner.getNextToken()) {
+					case TerminalTokens.TokenNameEOF :
+						return;
+					case TerminalTokens.TokenNameWHITESPACE :
+						addDeleteEdit(this.scanner.getCurrentTokenStartPosition(), this.scanner.getCurrentTokenEndPosition());
+						currentTokenStartPosition = this.scanner.currentPosition;
+						break;
+					case TerminalTokens.TokenNameCOMMENT_BLOCK :
+					case TerminalTokens.TokenNameCOMMENT_JAVADOC :
+						printBlockComment(false);
+						currentTokenStartPosition = this.scanner.currentPosition;
+						break;
+					case TerminalTokens.TokenNameCOMMENT_LINE :
+						printLineComment();
+						currentTokenStartPosition = this.scanner.currentPosition;
+						break;
+					case TerminalTokens.TokenNameIdentifier :
+						print(this.scanner.currentPosition - this.scanner.startPosition, false);
+						currentTokenStartPosition = this.scanner.currentPosition;
+						if (++ numberOfIdentifiers == numberOfTokens) {
+							this.scanner.resetTo(currentTokenStartPosition, this.scannerEndPosition - 1);
+							return;
+						}
+						break;
+					case TerminalTokens.TokenNameDOT :
+						print(this.scanner.currentPosition - this.scanner.startPosition, false);
+						currentTokenStartPosition = this.scanner.currentPosition;
+						break;
+					case TerminalTokens.TokenNameRPAREN:
+						currentTokenStartPosition = this.scanner.startPosition;
+						// $FALL-THROUGH$ - fall through default case...
+					default:
+						this.scanner.resetTo(currentTokenStartPosition, this.scannerEndPosition - 1);
+						return;
+				}
+			} while (this.scanner.currentPosition <= sourceEnd);
+		} catch(InvalidInputException e) {
 			throw new AbortFormatting(e);
 		}
 	}

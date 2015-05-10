@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2013 IBM Corporation and others.
+ * Copyright (c) 2008, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,8 +7,6 @@
  * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann - Contribution for
- *								Bug 392384 - [1.8][compiler][null] Restore nullness info from type annotations in class files
  *******************************************************************************/
 package org.eclipse.jdt.internal.codeassist;
 
@@ -19,7 +17,6 @@ import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.ITypeRoot;
 import org.eclipse.jdt.core.JavaModelException;
-import org.eclipse.jdt.core.Signature;
 import org.eclipse.jdt.core.WorkingCopyOwner;
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.codeassist.complete.CompletionNodeDetector;
@@ -31,7 +28,6 @@ import org.eclipse.jdt.internal.compiler.ast.AbstractVariableDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.Initializer;
-import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.ast.LocalDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.QualifiedTypeReference;
 import org.eclipse.jdt.internal.compiler.ast.SingleTypeReference;
@@ -39,7 +35,6 @@ import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.TypeParameter;
 import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
-import org.eclipse.jdt.internal.compiler.classfmt.TypeAnnotationWalker;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.lookup.BinaryTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
@@ -66,7 +61,6 @@ import org.eclipse.jdt.internal.core.JavaElement;
 import org.eclipse.jdt.internal.core.LocalVariable;
 import org.eclipse.jdt.internal.core.util.Util;
 
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class InternalExtendedCompletionContext {
 	private static Util.BindingsToNodesMap EmptyNodeMap = new Util.BindingsToNodesMap() {
 		public ASTNode get(Binding binding) {
@@ -183,7 +177,7 @@ public class InternalExtendedCompletionContext {
 			this.visibleMethods = new ObjectVector();
 	
 			ReferenceContext referenceContext = scope.referenceContext();
-			if (referenceContext instanceof AbstractMethodDeclaration || referenceContext instanceof LambdaExpression) {
+			if (referenceContext instanceof AbstractMethodDeclaration) {
 				// completion is inside a method body
 				searchVisibleVariablesAndMethods(scope, this.visibleLocalVariables, this.visibleFields, this.visibleMethods, notInJavadoc);
 			} else if (referenceContext instanceof TypeDeclaration) {
@@ -201,7 +195,7 @@ public class InternalExtendedCompletionContext {
 							}
 						} else {
 							FieldDeclaration fieldDeclaration = fields[i];							
-							if (fieldDeclaration.initialization != null && fieldDeclaration.binding != null) {
+							if (fieldDeclaration.initialization != null) {
 								boolean isInsideInitializer = false;
 								if (fieldDeclaration.initialization.sourceEnd > 0) {
 									if (fieldDeclaration.initialization.sourceStart <= astNode.sourceStart &&
@@ -262,7 +256,7 @@ public class InternalExtendedCompletionContext {
 		LocalDeclaration local = binding.declaration;
 
 		JavaElement parent = null;
-		ReferenceContext referenceContext = binding.declaringScope.isLambdaSubscope() ? binding.declaringScope.namedMethodScope().referenceContext() : binding.declaringScope.referenceContext();
+		ReferenceContext referenceContext = binding.declaringScope.referenceContext();
 		if (referenceContext instanceof AbstractMethodDeclaration) {
 			AbstractMethodDeclaration methodDeclaration = (AbstractMethodDeclaration) referenceContext;
 			parent = this.getJavaElementOfCompilationUnit(methodDeclaration, methodDeclaration.binding);
@@ -282,7 +276,7 @@ public class InternalExtendedCompletionContext {
 				local.declarationSourceEnd,
 				local.sourceStart,
 				local.sourceEnd,
-				local.type == null ? Signature.createTypeSignature(binding.type.readableName(), true) : Util.typeSignature(local.type),
+				Util.typeSignature(local.type),
 				binding.declaration.annotations,
 				local.modifiers,
 				local.getKind() == AbstractVariableDeclaration.PARAMETER);
@@ -338,8 +332,7 @@ public class InternalExtendedCompletionContext {
 		try {
 
 			SignatureWrapper wrapper = new SignatureWrapper(replacePackagesDot(typeSignature.toCharArray()));
-			// FIXME(stephan): do we interpret type annotations here?
-			assignableTypeBinding = this.lookupEnvironment.getTypeFromTypeSignature(wrapper, typeVariables, this.assistScope.enclosingClassScope().referenceContext.binding, null, TypeAnnotationWalker.EMPTY_ANNOTATION_WALKER);
+			assignableTypeBinding = this.lookupEnvironment.getTypeFromTypeSignature(wrapper, typeVariables, this.assistScope.enclosingClassScope().referenceContext.binding, null);
 			assignableTypeBinding = BinaryTypeBinding.resolveType(assignableTypeBinding, this.lookupEnvironment, true);
 		} catch (AbortCompilation e) {
 			assignableTypeBinding = null;
@@ -519,7 +512,7 @@ public class InternalExtendedCompletionContext {
 					nextInterface : for (int a = 0; a < itsLength; a++) {
 						ReferenceBinding next = itsInterfaces[a];
 						for (int b = 0; b < nextPosition; b++)
-							if (TypeBinding.equalsEquals(next, interfacesToVisit[b])) continue nextInterface;
+							if (next == interfacesToVisit[b]) continue nextInterface;
 						interfacesToVisit[nextPosition++] = next;
 					}
 				}
@@ -565,7 +558,7 @@ public class InternalExtendedCompletionContext {
 					nextInterface : for (int a = 0; a < itsLength; a++) {
 						ReferenceBinding next = itsInterfaces[a];
 						for (int b = 0; b < nextPosition; b++)
-							if (TypeBinding.equalsEquals(next, interfacesToVisit[b])) continue nextInterface;
+							if (next == interfacesToVisit[b]) continue nextInterface;
 						interfacesToVisit[nextPosition++] = next;
 					}
 				}
@@ -607,7 +600,7 @@ public class InternalExtendedCompletionContext {
 					nextInterface : for (int a = 0; a < itsLength; a++) {
 						ReferenceBinding next = itsInterfaces[a];
 						for (int b = 0; b < nextPosition; b++)
-							if (TypeBinding.equalsEquals(next, interfacesToVisit[b])) continue nextInterface;
+							if (next == interfacesToVisit[b]) continue nextInterface;
 						interfacesToVisit[nextPosition++] = next;
 					}
 				}

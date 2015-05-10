@@ -46,7 +46,7 @@ public class JavadocAllocationExpression extends AllocationExpression {
 		TypeBinding[] argumentTypes = Binding.NO_PARAMETERS;
 		boolean hasTypeVarArgs = false;
 		if (this.arguments != null) {
-			this.argumentsHaveErrors = false;
+			boolean argHasError = false;
 			int length = this.arguments.length;
 			argumentTypes = new TypeBinding[length];
 			for (int i = 0; i < length; i++) {
@@ -57,12 +57,12 @@ public class JavadocAllocationExpression extends AllocationExpression {
 					argumentTypes[i] = argument.resolveType((BlockScope)scope);
 				}
 				if (argumentTypes[i] == null) {
-					this.argumentsHaveErrors = true;
+					argHasError = true;
 				} else if (!hasTypeVarArgs) {
 					hasTypeVarArgs = argumentTypes[i].isTypeVariable();
 				}
 			}
-			if (this.argumentsHaveErrors) {
+			if (argHasError) {
 				return null;
 			}
 		}
@@ -116,8 +116,8 @@ public class JavadocAllocationExpression extends AllocationExpression {
 			if (paramMethodBinding.hasSubstitutedParameters()) {
 				int length = argumentTypes.length;
 				for (int i=0; i<length; i++) {
-					if (TypeBinding.notEquals(paramMethodBinding.parameters[i], argumentTypes[i]) &&
-							TypeBinding.notEquals(paramMethodBinding.parameters[i].erasure(), argumentTypes[i].erasure())) {
+					if (paramMethodBinding.parameters[i] != argumentTypes[i] &&
+							paramMethodBinding.parameters[i].erasure() != argumentTypes[i].erasure()) {
 						MethodBinding problem = new ProblemMethodBinding(this.binding, this.binding.selector, argumentTypes, ProblemReasons.NotFound);
 						scope.problemReporter().javadocInvalidConstructor(this, problem, scope.getDeclarationModifiers());
 						break;

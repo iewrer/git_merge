@@ -21,9 +21,9 @@
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
  *     Jesper Steen Moller - Contributions for
  *								bug 404146 - [1.7][compiler] nested try-catch-finally-blocks leads to unrunnable Java byte code
- *								bug 407297 - [1.8][compiler] Control generation of parameter names by option
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.impl;
+// GROOVY PATCHED
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStreamReader;
@@ -39,7 +39,6 @@ import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
-@SuppressWarnings({ "rawtypes", "unchecked" })
 public class CompilerOptions {
 
 	/**
@@ -49,7 +48,6 @@ public class CompilerOptions {
 	public static final String OPTION_LineNumberAttribute = "org.eclipse.jdt.core.compiler.debug.lineNumber"; //$NON-NLS-1$
 	public static final String OPTION_SourceFileAttribute = "org.eclipse.jdt.core.compiler.debug.sourceFile"; //$NON-NLS-1$
 	public static final String OPTION_PreserveUnusedLocal = "org.eclipse.jdt.core.compiler.codegen.unusedLocal"; //$NON-NLS-1$
-	public static final String OPTION_MethodParametersAttribute = "org.eclipse.jdt.core.compiler.codegen.methodParameters"; //$NON-NLS-1$
 	public static final String OPTION_DocCommentSupport= "org.eclipse.jdt.core.compiler.doc.comment.support"; //$NON-NLS-1$
 	public static final String OPTION_ReportMethodWithConstructorName = "org.eclipse.jdt.core.compiler.problem.methodWithConstructorName"; //$NON-NLS-1$
 	public static final String OPTION_ReportOverridingPackageDefaultMethod = "org.eclipse.jdt.core.compiler.problem.overridingPackageDefaultMethod"; //$NON-NLS-1$
@@ -143,10 +141,6 @@ public class CompilerOptions {
 	public static final String OPTION_ReportOverridingMethodWithoutSuperInvocation =  "org.eclipse.jdt.core.compiler.problem.overridingMethodWithoutSuperInvocation"; //$NON-NLS-1$
 	public static final String OPTION_GenerateClassFiles = "org.eclipse.jdt.core.compiler.generateClassFiles"; //$NON-NLS-1$
 	public static final String OPTION_Process_Annotations = "org.eclipse.jdt.core.compiler.processAnnotations"; //$NON-NLS-1$
-	// OPTION_Store_Annotations: undocumented option for testing purposes
-	public static final String OPTION_Store_Annotations = "org.eclipse.jdt.core.compiler.storeAnnotations"; //$NON-NLS-1$
-	public static final String OPTION_EmulateJavacBug8031744 = "org.eclipse.jdt.core.compiler.emulateJavacBug8031744"; //$NON-NLS-1$
-	public static final String OPTION_PostResolutionRawTypeCompatibilityCheck = "org.eclipse.jdt.core.compiler.postResolutionRawTypeCompatibilityCheck"; //$NON-NLS-1$
 	public static final String OPTION_ReportRedundantSuperinterface =  "org.eclipse.jdt.core.compiler.problem.redundantSuperinterface"; //$NON-NLS-1$
 	public static final String OPTION_ReportComparingIdentical =  "org.eclipse.jdt.core.compiler.problem.comparingIdentical"; //$NON-NLS-1$
 	public static final String OPTION_ReportMissingSynchronizedOnInheritedMethod =  "org.eclipse.jdt.core.compiler.problem.missingSynchronizedOnInheritedMethod"; //$NON-NLS-1$
@@ -170,7 +164,6 @@ public class CompilerOptions {
 	public static final String OPTION_NullableAnnotationName = "org.eclipse.jdt.core.compiler.annotation.nullable"; //$NON-NLS-1$
 	public static final String OPTION_NonNullAnnotationName = "org.eclipse.jdt.core.compiler.annotation.nonnull"; //$NON-NLS-1$
 	public static final String OPTION_NonNullByDefaultAnnotationName = "org.eclipse.jdt.core.compiler.annotation.nonnullbydefault"; //$NON-NLS-1$
-	public static final String OPTION_ReportUninternedIdentityComparison = "org.eclipse.jdt.core.compiler.problem.uninternedIdentityComparison"; //$NON-NLS-1$
 	// defaults for the above:
 	static final char[][] DEFAULT_NULLABLE_ANNOTATION_NAME = CharOperation.splitOn('.', "org.eclipse.jdt.annotation.Nullable".toCharArray()); //$NON-NLS-1$
 	static final char[][] DEFAULT_NONNULL_ANNOTATION_NAME = CharOperation.splitOn('.', "org.eclipse.jdt.annotation.NonNull".toCharArray()); //$NON-NLS-1$
@@ -179,6 +172,18 @@ public class CompilerOptions {
 	public static final String OPTION_SyntacticNullAnalysisForFields = "org.eclipse.jdt.core.compiler.problem.syntacticNullAnalysisForFields"; //$NON-NLS-1$
 	public static final String OPTION_InheritNullAnnotations = "org.eclipse.jdt.core.compiler.annotation.inheritNullAnnotations";  //$NON-NLS-1$
 	public static final String OPTION_ReportNonnullParameterAnnotationDropped = "org.eclipse.jdt.core.compiler.problem.nonnullParameterAnnotationDropped";  //$NON-NLS-1$
+	// GROOVY start
+	// This first one is the MASTER OPTION and if null, rather than ENABLED or DISABLED then the compiler will abort
+	// FIXASC (M3) aborting is just a short term action to enable us to ensure the right paths into the compiler configure it
+	public static final String OPTIONG_BuildGroovyFiles = "org.eclipse.jdt.core.compiler.groovy.buildGroovyFiles"; //$NON-NLS-1$
+	public static final String OPTIONG_GroovyFlags = "org.eclipse.jdt.core.compiler.groovy.projectFlags"; //$NON-NLS-1$
+	public static final String OPTIONG_GroovyClassLoaderPath = "org.eclipse.jdt.core.compiler.groovy.groovyClassLoaderPath"; //$NON-NLS-1$
+	public static final String OPTIONG_GroovyProjectName = "org.eclipse.jdt.core.compiler.groovy.groovyProjectName"; //$NON-NLS-1$
+	public static final String OPTIONG_GroovyExtraImports = "org.eclipse.jdt.core.compiler.groovy.groovyExtraImports"; //$NON-NLS-1$
+	public static final String OPTIONG_GroovyTransformsToRunOnReconcile = "org.eclipse.jdt.core.compiler.groovy.groovyTransformsToRunOnReconcile"; //$NON-NLS-1$
+	public static final String OPTIONG_GroovyCustomizerClassesList = "org.eclipse.jdt.core.compiler.groovy.groovyCustomizerClassesList"; //$NON-NLS-1$
+	// GROOVY end
+	
 	/**
 	 * Possible values for configurable options
 	 */
@@ -195,7 +200,6 @@ public class CompilerOptions {
 	public static final String VERSION_1_5 = "1.5"; //$NON-NLS-1$
 	public static final String VERSION_1_6 = "1.6"; //$NON-NLS-1$
 	public static final String VERSION_1_7 = "1.7"; //$NON-NLS-1$
-	public static final String VERSION_1_8 = "1.8"; //$NON-NLS-1$
 	public static final String ERROR = "error"; //$NON-NLS-1$
 	public static final String WARNING = "warning"; //$NON-NLS-1$
 	public static final String IGNORE = "ignore"; //$NON-NLS-1$
@@ -313,8 +317,6 @@ public class CompilerOptions {
 	
 	/** Classfile debug information, may contain source file name, line numbers, local variable tables, etc... */
 	public int produceDebugAttributes; 
-	/** Classfile method patameters information as per JEP 118... */
-	public boolean produceMethodParameters; 
 	/** Compliance level for the compiler, refers to a JDK version, e.g. {@link ClassFileConstants#JDK1_4} */
 	public long complianceLevel;
 	/** Original compliance level for the compiler, refers to a JDK version, e.g. {@link ClassFileConstants#JDK1_4},
@@ -409,8 +411,6 @@ public class CompilerOptions {
 	public boolean processAnnotations;
 	/** Store annotations */
 	public boolean storeAnnotations;
-	/** extra check for raw type compatibility post overload resolution */
-	public boolean postResolutionRawTypeCompatibilityCheck = true;
 	/** Specify if need to report missing override annotation for a method implementing an interface method (java 1.6 and above)*/
 	public boolean reportMissingOverrideAnnotationForInterfaceMethodImplementation;
 	/** Indicate if annotation processing generates classfiles */
@@ -425,6 +425,17 @@ public class CompilerOptions {
 	 *  See https://bugs.eclipse.org/bugs/show_bug.cgi?id=372377
 	 */
 	public boolean ignoreSourceFolderWarningOption;
+
+	// GROOVY start
+	public int buildGroovyFiles = 0; // 0=dontknow 1=no 2=yes
+	public int groovyFlags = 0; // 0x01 == IsGrails
+	
+	public String groovyCustomizerClassesList = null;
+	public String groovyClassLoaderPath = null;
+	public String groovyExtraImports = null;
+	public String groovyProjectName = null;
+	public String groovyTransformsToRunOnReconcile = null;
+	// GROOVY end
 
 	// === Support for Null Annotations: ===
 	/** Master switch for null analysis based on annotations: */
@@ -441,7 +452,7 @@ public class CompilerOptions {
 	public boolean analyseResourceLeaks;
 	/** Should missing enum cases be reported even if a default case exists in the same switch? */
 	public boolean reportMissingEnumCaseDespiteDefault;
-	
+
 	/** Should the compiler tolerate illegal ambiguous varargs invocation in compliance < 1.7 
 	 * to be bug compatible with javac? (bug 383780) */
 	public static boolean tolerateIllegalAmbiguousVarargsInvocation;
@@ -455,9 +466,6 @@ public class CompilerOptions {
 
 	/** Should immediate null-check for fields be considered during null analysis (syntactical match)? */
 	public boolean enableSyntacticNullAnalysisForFields;
-
-	public boolean complainOnUninternedIdentityComparison;
-	public boolean emulateJavacBug8031744 = true;
 
 	// keep in sync with warningTokenToIrritant and warningTokenFromIrritant
 	public final static String[] warningTokens = {
@@ -475,7 +483,7 @@ public class CompilerOptions {
 		"null", //$NON-NLS-1$
 		"rawtypes", //$NON-NLS-1$
 		"resource", //$NON-NLS-1$
-		"restriction", //$NON-NLS-1$		
+		"restriction", //$NON-NLS-1$
 		"serial", //$NON-NLS-1$
 		"static-access", //$NON-NLS-1$
 		"static-method", //$NON-NLS-1$
@@ -706,10 +714,6 @@ public class CompilerOptions {
 				if (jdkLevel == ClassFileConstants.JDK1_7)
 					return VERSION_1_7;
 				break;
-			case ClassFileConstants.MAJOR_VERSION_1_8 :
-				if (jdkLevel == ClassFileConstants.JDK1_8)
-					return VERSION_1_8;
-				break;
 		}
 		return Util.EMPTY_STRING; // unknown version
 	}
@@ -734,8 +738,6 @@ public class CompilerOptions {
 						return ClassFileConstants.JDK1_6;
 					case '7':
 						return ClassFileConstants.JDK1_7;
-					case '8':
-						return ClassFileConstants.JDK1_8;
 					default:
 						return 0; // unknown
 				}
@@ -944,7 +946,7 @@ public class CompilerOptions {
 			case InvalidJavadoc :
 			case MissingJavadocComments :
 			case MissingJavadocTags:
-				return "javadoc"; //$NON-NLS-1$
+				return "javadoc"; //$NON-NLS-1$				
 			case MissingSynchronizedModifierInInheritedMethod:
 				return "sync-override";	 //$NON-NLS-1$
 		}
@@ -1038,7 +1040,6 @@ public class CompilerOptions {
 		optionsMap.put(OPTION_LocalVariableAttribute, (this.produceDebugAttributes & ClassFileConstants.ATTR_VARS) != 0 ? GENERATE : DO_NOT_GENERATE);
 		optionsMap.put(OPTION_LineNumberAttribute, (this.produceDebugAttributes & ClassFileConstants.ATTR_LINES) != 0 ? GENERATE : DO_NOT_GENERATE);
 		optionsMap.put(OPTION_SourceFileAttribute, (this.produceDebugAttributes & ClassFileConstants.ATTR_SOURCE) != 0 ? GENERATE : DO_NOT_GENERATE);
-		optionsMap.put(OPTION_MethodParametersAttribute, this.produceMethodParameters ? GENERATE : DO_NOT_GENERATE);
 		optionsMap.put(OPTION_PreserveUnusedLocal, this.preserveAllLocalVariables ? PRESERVE : OPTIMIZE_OUT);
 		optionsMap.put(OPTION_DocCommentSupport, this.docCommentSupport ? ENABLED : DISABLED);
 		optionsMap.put(OPTION_ReportMethodWithConstructorName, getSeverityString(MethodWithConstructorName));
@@ -1134,9 +1135,6 @@ public class CompilerOptions {
 		optionsMap.put(OPTION_ReportOverridingMethodWithoutSuperInvocation, getSeverityString(OverridingMethodWithoutSuperInvocation));
 		optionsMap.put(OPTION_GenerateClassFiles, this.generateClassFiles ? ENABLED : DISABLED);
 		optionsMap.put(OPTION_Process_Annotations, this.processAnnotations ? ENABLED : DISABLED);
-		optionsMap.put(OPTION_Store_Annotations, this.storeAnnotations ? ENABLED : DISABLED);
-		optionsMap.put(OPTION_EmulateJavacBug8031744, this.emulateJavacBug8031744 ? ENABLED : DISABLED);
-		optionsMap.put(OPTION_PostResolutionRawTypeCompatibilityCheck, this.postResolutionRawTypeCompatibilityCheck ? ENABLED : DISABLED);
 		optionsMap.put(OPTION_ReportRedundantSuperinterface, getSeverityString(RedundantSuperinterface));
 		optionsMap.put(OPTION_ReportComparingIdentical, getSeverityString(ComparingIdentical));
 		optionsMap.put(OPTION_ReportMissingSynchronizedOnInheritedMethod, getSeverityString(MissingSynchronizedModifierInInheritedMethod));
@@ -1165,7 +1163,10 @@ public class CompilerOptions {
 		optionsMap.put(OPTION_SyntacticNullAnalysisForFields, this.enableSyntacticNullAnalysisForFields ? ENABLED : DISABLED);
 		optionsMap.put(OPTION_InheritNullAnnotations, this.inheritNullAnnotations ? ENABLED : DISABLED);
 		optionsMap.put(OPTION_ReportNonnullParameterAnnotationDropped, getSeverityString(NonnullParameterAnnotationDropped));
-		optionsMap.put(OPTION_ReportUninternedIdentityComparison, this.complainOnUninternedIdentityComparison ? ENABLED : DISABLED);
+		// GROOVY start
+		// if not supplied here it isn't seen as something that can be set from elsewhere
+		optionsMap.put(OPTIONG_GroovyTransformsToRunOnReconcile,"");
+		// GROOVY end
 		return optionsMap;
 	}
 
@@ -1228,8 +1229,6 @@ public class CompilerOptions {
 
 		// indicates if unused/optimizable local variables need to be preserved (debugging purpose)
 		this.preserveAllLocalVariables = false;
-		
-		this.produceMethodParameters = false;
 
 		// indicates whether literal expressions are inlined at parse-time or not
 		this.parseLiteralExpressionsAsConstants = true;
@@ -1333,8 +1332,6 @@ public class CompilerOptions {
 		this.analyseResourceLeaks = true;
 
 		this.reportMissingEnumCaseDespiteDefault = false;
-
-		this.complainOnUninternedIdentityComparison = false;
 	}
 
 	public void set(Map optionsMap) {
@@ -1527,13 +1524,6 @@ public class CompilerOptions {
 				this.shareCommonFinallyBlocks = false;
 			}
 		}
-		if ((optionValue = optionsMap.get(OPTION_MethodParametersAttribute)) != null) {
-			if (GENERATE.equals(optionValue)) {
-				this.produceMethodParameters = true;
-			} else if (DO_NOT_GENERATE.equals(optionValue)) {
-				this.produceMethodParameters = false;
-			}
-		}
 		if ((optionValue = optionsMap.get(OPTION_SuppressWarnings)) != null) {
 			if (ENABLED.equals(optionValue)) {
 				this.suppressWarnings = true;
@@ -1652,7 +1642,6 @@ public class CompilerOptions {
 			this.isAnnotationBasedNullAnalysisEnabled = ENABLED.equals(optionValue);
 		}
 		if (this.isAnnotationBasedNullAnalysisEnabled) {
-			this.storeAnnotations = true;
 			if ((optionValue = optionsMap.get(OPTION_ReportNullSpecViolation)) != null) {
 				if (ERROR.equals(optionValue)) {
 					this.errorThreshold.set(NullSpecViolation);
@@ -1793,46 +1782,83 @@ public class CompilerOptions {
 				this.storeAnnotations = true; // annotation processing requires annotation to be stored
 			} else if (DISABLED.equals(optionValue)) {
 				this.processAnnotations = false;
-				if (!this.isAnnotationBasedNullAnalysisEnabled)
-					this.storeAnnotations = false;
+				this.storeAnnotations = false;
 			}
 		}
-		if ((optionValue = optionsMap.get(OPTION_Store_Annotations)) != null) {
+		// GROOVY start
+		if ((optionValue = optionsMap.get(OPTIONG_BuildGroovyFiles)) != null) {
 			if (ENABLED.equals(optionValue)) {
-				this.storeAnnotations = true;
+				this.buildGroovyFiles = 2;
+				this.storeAnnotations = true; // force it on
+				// will need proper bit manipulation when second flag comes up
+				String s = (String)optionsMap.get(OPTIONG_GroovyFlags);
+				if (s!=null && s.equals("1")) { //$NON-NLS-1$
+					this.groovyFlags = 0x01;
+				} else {
+					this.groovyFlags = 0;
+				}
 			} else if (DISABLED.equals(optionValue)) {
-				if (!this.isAnnotationBasedNullAnalysisEnabled && !this.processAnnotations)
-					this.storeAnnotations = false;
+				this.buildGroovyFiles = 1;
+				this.groovyFlags = 0;
 			}
 		}
-		if ((optionValue = optionsMap.get(OPTION_EmulateJavacBug8031744)) != null) {
-			if (ENABLED.equals(optionValue)) {
-				this.emulateJavacBug8031744 = true;
-			} else if (DISABLED.equals(optionValue)) {
-				this.emulateJavacBug8031744 = false;
+		if ((optionValue = optionsMap.get(OPTIONG_GroovyClassLoaderPath)) != null) {
+			this.groovyClassLoaderPath = (String)optionValue;
+		}
+		if ((optionValue = optionsMap.get(OPTIONG_GroovyExtraImports)) != null) {
+			this.groovyExtraImports = (String)optionValue;
+		} else {
+			if (sysPropConfiguredExtraImports!=null && this.groovyExtraImports == null) {
+				this.groovyExtraImports = sysPropConfiguredExtraImports;
 			}
 		}
-		if ((optionValue = optionsMap.get(OPTION_PostResolutionRawTypeCompatibilityCheck)) != null) {
-			if (ENABLED.equals(optionValue)) {
-				this.postResolutionRawTypeCompatibilityCheck = true;
-			} else if (DISABLED.equals(optionValue)) {
-				this.postResolutionRawTypeCompatibilityCheck = false;
+		if ((optionValue = optionsMap.get(OPTIONG_GroovyCustomizerClassesList)) != null) {
+			this.groovyCustomizerClassesList = (String)optionValue;
+		} else {
+			if (sysPropConfiguredCustomizerClassesList!=null && this.groovyCustomizerClassesList == null) {
+				this.groovyCustomizerClassesList = sysPropConfiguredCustomizerClassesList;
 			}
 		}
-		if ((optionValue = optionsMap.get(OPTION_ReportUninternedIdentityComparison)) != null) {
-			if (ENABLED.equals(optionValue)) {
-				this.complainOnUninternedIdentityComparison = true;
-			} else if (DISABLED.equals(optionValue)) {
-				this.complainOnUninternedIdentityComparison = false;
+		optionValue = optionsMap.get(OPTIONG_GroovyTransformsToRunOnReconcile);
+		if (optionValue!=null && ((String)optionValue).length()!=0) {
+			this.groovyTransformsToRunOnReconcile = (String)optionValue;
+		} else {
+			if (sysPropConfiguredGroovyTransforms!=null) {
+				this.groovyTransformsToRunOnReconcile = sysPropConfiguredGroovyTransforms;
 			}
+		}
+		if ((optionValue = optionsMap.get(OPTIONG_GroovyProjectName)) != null) {
+			this.groovyProjectName = (String)optionValue;
+		}
+		// GROOVY end
+	}
+	
+	static String sysPropConfiguredCustomizerClassesList = null;
+	static String sysPropConfiguredExtraImports = null;
+	static String sysPropConfiguredGroovyTransforms = null;
+	static {
+		try {
+			sysPropConfiguredExtraImports = System.getProperty("greclipse.extraimports");
+		} catch (Exception e) {
+			sysPropConfiguredExtraImports= null;
+		}
+		try {
+			sysPropConfiguredGroovyTransforms = System.getProperty("greclipse.transformsDuringReconcile");
+		} catch (Exception e) {
+			sysPropConfiguredGroovyTransforms= null;
+		}
+		try {
+			sysPropConfiguredCustomizerClassesList = System.getProperty("greclipse.customizerClassesList");
+		} catch (Exception e) {
+			sysPropConfiguredCustomizerClassesList= null;
 		}
 	}
+	
 	public String toString() {
 		StringBuffer buf = new StringBuffer("CompilerOptions:"); //$NON-NLS-1$
 		buf.append("\n\t- local variables debug attributes: ").append((this.produceDebugAttributes & ClassFileConstants.ATTR_VARS) != 0 ? "ON" : " OFF"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		buf.append("\n\t- line number debug attributes: ").append((this.produceDebugAttributes & ClassFileConstants.ATTR_LINES) != 0 ? "ON" : " OFF"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		buf.append("\n\t- source debug attributes: ").append((this.produceDebugAttributes & ClassFileConstants.ATTR_SOURCE) != 0 ? "ON" : " OFF"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-		buf.append("\n\t- MethodParameters attributes: ").append(this.produceMethodParameters ? GENERATE : DO_NOT_GENERATE); //$NON-NLS-1$
 		buf.append("\n\t- preserve all local variables: ").append(this.preserveAllLocalVariables ? "ON" : " OFF"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		buf.append("\n\t- method with constructor name: ").append(getSeverityString(MethodWithConstructorName)); //$NON-NLS-1$
 		buf.append("\n\t- overridden package default method: ").append(getSeverityString(OverriddenPackageDefaultMethod)); //$NON-NLS-1$
@@ -1935,6 +1961,15 @@ public class CompilerOptions {
 		buf.append("\n\t- resource may not be closed: ").append(getSeverityString(PotentiallyUnclosedCloseable)); //$NON-NLS-1$
 		buf.append("\n\t- resource should be handled by try-with-resources: ").append(getSeverityString(ExplicitlyClosedAutoCloseable)); //$NON-NLS-1$
 		buf.append("\n\t- Unused Type Parameter: ").append(getSeverityString(UnusedTypeParameter)); //$NON-NLS-1$
+		
+		// GROOVY start
+		buf.append("\n\t- build groovy files: ").append((this.buildGroovyFiles==0)?"dontknow":(this.buildGroovyFiles==1?"no":"yes")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+		buf.append("\n\t- build groovy flags: ").append(Integer.toHexString(this.groovyFlags)); //$NON-NLS-1$
+		buf.append("\n\t- groovyclassloader path: ").append(this.groovyClassLoaderPath); //$NON-NLS-1$
+		buf.append("\n\t- groovy projectname: ").append(this.groovyProjectName); //$NON-NLS-1$
+		buf.append("\n\t- groovy extra imports: ").append(this.groovyExtraImports); //$NON-NLS-1$
+		buf.append("\n\t- groovy customizer classes list: ").append(this.groovyCustomizerClassesList); //$NON-NLS-1$
+		// GROOVY end
 		return buf.toString();
 	}
 	

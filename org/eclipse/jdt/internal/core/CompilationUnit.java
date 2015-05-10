@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,10 +11,12 @@
  *                                                            (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=71460)
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
+// GROOVY PATCHED
 
 import java.io.IOException;
 import java.util.*;
 
+import org.codehaus.jdt.groovy.integration.LanguageSupportFactory;
 import org.eclipse.core.resources.*;
 import org.eclipse.core.runtime.*;
 import org.eclipse.jdt.core.*;
@@ -30,8 +32,10 @@ import org.eclipse.jdt.internal.compiler.util.SuffixConstants;
 import org.eclipse.jdt.internal.core.util.MementoTokenizer;
 import org.eclipse.jdt.internal.core.util.Messages;
 import org.eclipse.jdt.internal.core.util.Util;
+
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
+
 import org.eclipse.text.edits.MalformedTreeException;
 import org.eclipse.text.edits.TextEdit;
 import org.eclipse.text.edits.UndoEdit;
@@ -39,7 +43,6 @@ import org.eclipse.text.edits.UndoEdit;
 /**
  * @see ICompilationUnit
  */
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class CompilationUnit extends Openable implements ICompilationUnit, org.eclipse.jdt.internal.compiler.env.ICompilationUnit, SuffixConstants {
 	/**
 	 * Internal synonym for deprecated constant AST.JSL2
@@ -204,7 +207,6 @@ protected boolean buildStructure(OpenableElementInfo info, final IProgressMonito
 		}
 	} finally {
 	    if (compilationUnitDeclaration != null) {
-	    	unitInfo.hasFunctionalTypes = compilationUnitDeclaration.hasFunctionalTypes();
 	        compilationUnitDeclaration.cleanUp();
 	    }
 	}
@@ -585,7 +587,13 @@ public IJavaElement findSharedWorkingCopy(IBufferFactory factory) {
  * @see ICompilationUnit#findWorkingCopy(WorkingCopyOwner)
  */
 public ICompilationUnit findWorkingCopy(WorkingCopyOwner workingCopyOwner) {
+    // GROOVY start
+    /* old {
 	CompilationUnit cu = new CompilationUnit((PackageFragment)this.parent, getElementName(), workingCopyOwner);
+    } new */
+    CompilationUnit cu = LanguageSupportFactory.newCompilationUnit((PackageFragment)this.parent, getElementName(), workingCopyOwner);
+    // GROOVY end
+	
 	if (workingCopyOwner == DefaultWorkingCopyOwner.PRIMARY) {
 		return cu;
 	} else {
@@ -884,7 +892,12 @@ public ICompilationUnit getPrimary() {
  */
 public IJavaElement getPrimaryElement(boolean checkOwner) {
 	if (checkOwner && isPrimary()) return this;
+    // GROOVY start
+    /* old {
 	return new CompilationUnit((PackageFragment)getParent(), getElementName(), DefaultWorkingCopyOwner.PRIMARY);
+    } new */
+	return LanguageSupportFactory.newCompilationUnit((PackageFragment)getParent(), getElementName(), DefaultWorkingCopyOwner.PRIMARY);
+    // GROOVY end
 }
 /*
  * @see Openable#resource(PackageFragmentRoot)
@@ -975,7 +988,12 @@ public ICompilationUnit getWorkingCopy(WorkingCopyOwner workingCopyOwner, IProbl
 
 	JavaModelManager manager = JavaModelManager.getJavaModelManager();
 
+	// GROOVY start
+    /* old {
 	CompilationUnit workingCopy = new CompilationUnit((PackageFragment)getParent(), getElementName(), workingCopyOwner);
+    } new */
+    CompilationUnit workingCopy = LanguageSupportFactory.newCompilationUnit((PackageFragment)getParent(), getElementName(), workingCopyOwner);
+    // GROOVY end
 	JavaModelManager.PerWorkingCopyInfo perWorkingCopyInfo =
 		manager.getPerWorkingCopyInfo(workingCopy, false/*don't create*/, true/*record usage*/, null/*not used since don't create*/);
 	if (perWorkingCopyInfo != null) {
@@ -1127,7 +1145,12 @@ protected IBuffer openBuffer(IProgressMonitor pm, Object info) throws JavaModelE
 	if (isWorkingCopy) {
 		// ensure that isOpen() is called outside the bufManager synchronized block
 		// see https://bugs.eclipse.org/bugs/show_bug.cgi?id=237772
+	    // GROOVY start
+	    /* old {
 		mustSetToOriginalContent = !isPrimary() && (original = new CompilationUnit((PackageFragment)getParent(), getElementName(), DefaultWorkingCopyOwner.PRIMARY)).isOpen() ;
+	    } new */
+	    mustSetToOriginalContent = !isPrimary() && (original = LanguageSupportFactory.newCompilationUnit((PackageFragment)getParent(), getElementName(), DefaultWorkingCopyOwner.PRIMARY)).isOpen() ;
+	    // GROOVY end
 	}
 
 	// synchronize to ensure that 2 threads are not putting 2 different buffers at the same time

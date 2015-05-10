@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2010 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -26,7 +26,6 @@ import org.eclipse.jdt.internal.core.util.MementoTokenizer;
  * @see IMember
  */
 
-@SuppressWarnings({"rawtypes", "unchecked"})
 public abstract class Member extends SourceRefElement implements IMember {
 
 protected Member(JavaElement parent) {
@@ -172,24 +171,6 @@ public IJavaElement getHandleFromMemento(String token, MementoTokenizer memento,
 	switch (token.charAt(0)) {
 		case JEM_COUNT:
 			return getHandleUpdatingCountFromMemento(memento, workingCopyOwner);
-		case JEM_LAMBDA_EXPRESSION:
-			if (!memento.hasMoreTokens() || memento.nextToken() != MementoTokenizer.STRING)
-				return this;
-			if (!memento.hasMoreTokens()) return this;
-			String interphase = memento.nextToken();
-			if (!memento.hasMoreTokens() || memento.nextToken() != MementoTokenizer.COUNT) 
-				return this;
-			int sourceStart = Integer.parseInt(memento.nextToken());
-			if (!memento.hasMoreTokens() || memento.nextToken() != MementoTokenizer.COUNT) 
-				return this;
-			int sourceEnd = Integer.parseInt(memento.nextToken());
-			if (!memento.hasMoreTokens() || memento.nextToken() != MementoTokenizer.COUNT) 
-				return this;
-			int arrowPosition = Integer.parseInt(memento.nextToken());
-			LambdaExpression expression = LambdaFactory.createLambdaExpression(this, interphase, sourceStart, sourceEnd, arrowPosition);
-			if (!memento.hasMoreTokens() || (token = memento.nextToken()) != MementoTokenizer.LAMBDA_METHOD) 
-				return expression;
-			return expression.getHandleFromMemento(token, memento, workingCopyOwner);
 		case JEM_TYPE:
 			String typeName;
 			if (memento.hasMoreTokens()) {
@@ -374,10 +355,7 @@ public boolean isBinary() {
 protected boolean isMainMethod(IMethod method) throws JavaModelException {
 	if ("main".equals(method.getElementName()) && Signature.SIG_VOID.equals(method.getReturnType())) { //$NON-NLS-1$
 		int flags= method.getFlags();
-		IType declaringType = null;
-		if (Flags.isStatic(flags) &&
-				(Flags.isPublic(flags) || 
-						((declaringType = getDeclaringType()) != null && declaringType.isInterface()))) {
+		if (Flags.isStatic(flags) && Flags.isPublic(flags)) {
 			String[] paramTypes= method.getParameterTypes();
 			if (paramTypes.length == 1) {
 				String typeSignature=  Signature.toString(paramTypes[0]);

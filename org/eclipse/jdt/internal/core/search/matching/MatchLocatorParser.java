@@ -1,15 +1,17 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
- * 
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.internal.core.search.matching;
+// GROOVY PATCHED
 
+import org.codehaus.jdt.groovy.integration.LanguageSupportFactory;
 import org.eclipse.jdt.core.search.IJavaSearchConstants;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.ast.*;
@@ -28,10 +30,19 @@ public class MatchLocatorParser extends Parser {
 	final int patternFineGrain;
 
 public static MatchLocatorParser createParser(ProblemReporter problemReporter, MatchLocator locator) {
+	// GROOVY Start
+	/* old {
 	if ((locator.matchContainer & PatternLocator.COMPILATION_UNIT_CONTAINER) != 0) {
 		return new ImportMatchLocatorParser(problemReporter, locator);
 	}
 	return new MatchLocatorParser(problemReporter, locator);
+	} new */
+	// use multiplexing parsers instead
+	if ((locator.matchContainer & PatternLocator.COMPILATION_UNIT_CONTAINER) != 0) {
+		return LanguageSupportFactory.getImportMatchLocatorParser(problemReporter, locator);
+	}
+	return LanguageSupportFactory.getMatchLocatorParser(problemReporter, locator);
+	// GROOVY End
 }
 
 /**
@@ -90,7 +101,13 @@ public class ClassAndMethodDeclarationVisitor extends ClassButNoMethodDeclaratio
 	}
 }
 
-protected MatchLocatorParser(ProblemReporter problemReporter, MatchLocator locator) {
+//GROOVY Start
+//make public
+//Original code
+//protected 
+public
+//GROOVY End
+MatchLocatorParser(ProblemReporter problemReporter, MatchLocator locator) {
 	super(problemReporter, true);
 	this.reportOnlyOneSyntaxError = true;
 	this.patternLocator = locator.patternLocator;
@@ -214,38 +231,29 @@ protected void consumeCastExpressionLL1() {
 	if ((this.patternFineGrain & IJavaSearchConstants.CAST_TYPE_REFERENCE) != 0) {
 		CastExpression castExpression = (CastExpression) this.expressionStack[this.expressionPtr];
 		this.patternLocator.match(castExpression.type, this.nodeSet);
+        }
 	}
-}
-protected void consumeCastExpressionLL1WithBounds() {
-	super.consumeCastExpressionLL1WithBounds();
-	if ((this.patternFineGrain & IJavaSearchConstants.CAST_TYPE_REFERENCE) != 0) {
-		CastExpression castExpression = (CastExpression) this.expressionStack[this.expressionPtr];
-		TypeReference[] typeReferences = ((IntersectionCastTypeReference) castExpression.type).typeReferences;
-		for (int i = 0, length = typeReferences.length; i < length; i++)
-			this.patternLocator.match(typeReferences[i], this.nodeSet);
-	}
-}
 protected void consumeCastExpressionWithGenericsArray() {
 	super.consumeCastExpressionWithGenericsArray();
 	if ((this.patternFineGrain & IJavaSearchConstants.CAST_TYPE_REFERENCE) != 0) {
 		CastExpression castExpression = (CastExpression) this.expressionStack[this.expressionPtr];
 		this.patternLocator.match(castExpression.type, this.nodeSet);
+        }
 	}
-}
 protected void consumeCastExpressionWithNameArray() {
 	super.consumeCastExpressionWithNameArray();
 	if ((this.patternFineGrain & IJavaSearchConstants.CAST_TYPE_REFERENCE) != 0) {
 		CastExpression castExpression = (CastExpression) this.expressionStack[this.expressionPtr];
 		this.patternLocator.match(castExpression.type, this.nodeSet);
+        }
 	}
-}
 protected void consumeCastExpressionWithPrimitiveType() {
 	super.consumeCastExpressionWithPrimitiveType();
 	if ((this.patternFineGrain & IJavaSearchConstants.CAST_TYPE_REFERENCE) != 0) {
 		CastExpression castExpression = (CastExpression) this.expressionStack[this.expressionPtr];
 		this.patternLocator.match(castExpression.type, this.nodeSet);
+        }
 	}
-}
 protected void consumeCastExpressionWithQualifiedGenericsArray() {
 	super.consumeCastExpressionWithQualifiedGenericsArray();
 	if ((this.patternFineGrain & IJavaSearchConstants.CAST_TYPE_REFERENCE) != 0) {
@@ -357,21 +365,15 @@ protected void consumeInterfaceType() {
 	this.patternLocator.setFlavors(PatternLocator.NO_FLAVOR);
 }
 
-@Override
-protected void consumeLambdaExpression() {
-	super.consumeLambdaExpression();
-	this.patternLocator.match((LambdaExpression) this.expressionStack[this.expressionPtr], this.nodeSet);
-}
-
 protected void consumeLocalVariableDeclaration() {
 	super.consumeLocalVariableDeclaration();
 	this.patternLocator.match((LocalDeclaration) this.astStack[this.astPtr], this.nodeSet);
 }
 
-protected void consumeMarkerAnnotation(boolean isTypeAnnotation) {
-	super.consumeMarkerAnnotation(isTypeAnnotation);
+protected void consumeMarkerAnnotation() {
+	super.consumeMarkerAnnotation();
 	if (this.patternFineGrain == 0 || (this.patternFineGrain & IJavaSearchConstants.ANNOTATION_TYPE_REFERENCE) != 0) {
-		Annotation annotation = (Annotation) (isTypeAnnotation ? this.typeAnnotationStack[this.typeAnnotationPtr] : this.expressionStack[this.expressionPtr]);
+		Annotation annotation = (Annotation) this.expressionStack[this.expressionPtr];
 		this.patternLocator.match(annotation, this.nodeSet);
 	}
 }
@@ -481,11 +483,11 @@ protected void consumeMethodInvocationSuperWithTypeArguments() {
 	}
 }
 
-protected void consumeNormalAnnotation(boolean isTypeAnnotation) {
-	super.consumeNormalAnnotation(isTypeAnnotation);
+protected void consumeNormalAnnotation() {
+	super.consumeNormalAnnotation();
 	if (this.patternFineGrain == 0 || (this.patternFineGrain & IJavaSearchConstants.ANNOTATION_TYPE_REFERENCE) != 0) {
 		// this is always an Annotation
-		Annotation annotation = (Annotation) (isTypeAnnotation ? this.typeAnnotationStack[this.typeAnnotationPtr] : this.expressionStack[this.expressionPtr]);
+		Annotation annotation = (Annotation) this.expressionStack[this.expressionPtr];
 		this.patternLocator.match(annotation, this.nodeSet);
 	}
 }
@@ -519,33 +521,11 @@ protected void consumePrimaryNoNewArrayWithName() {
 	this.intPtr--;
 }
 
-@Override
-protected void consumeReferenceExpression(ReferenceExpression referenceExpression) {
-	super.consumeReferenceExpression(referenceExpression);
-	if (this.patternFineGrain == 0) {
-		this.patternLocator.match(referenceExpression, this.nodeSet);
-	} else if ((this.patternFineGrain & IJavaSearchConstants.METHOD_REFERENCE_EXPRESSION) != 0) {
-		this.patternLocator.match(referenceExpression, this.nodeSet);
-	} else if (referenceExpression.lhs.isThis()) {
-		if ((this.patternFineGrain & IJavaSearchConstants.THIS_REFERENCE) != 0) {
-			this.patternLocator.match(referenceExpression, this.nodeSet);
-		}
-	} else if (referenceExpression.lhs.isSuper()) {
-		if ((this.patternFineGrain & IJavaSearchConstants.SUPER_REFERENCE) != 0) {
-			this.patternLocator.match(referenceExpression, this.nodeSet);
-		}
-	} else if (referenceExpression.lhs instanceof QualifiedNameReference || referenceExpression.lhs instanceof QualifiedTypeReference) {
-		if ((this.patternFineGrain & IJavaSearchConstants.QUALIFIED_REFERENCE) != 0) {
-			this.patternLocator.match(referenceExpression, this.nodeSet);
-		} 
-	}
-}
-
-protected void consumeSingleMemberAnnotation(boolean isTypeAnnotation) {
-	super.consumeSingleMemberAnnotation(isTypeAnnotation);
+protected void consumeSingleMemberAnnotation() {
+	super.consumeSingleMemberAnnotation();
 	if (this.patternFineGrain == 0 || (this.patternFineGrain & IJavaSearchConstants.ANNOTATION_TYPE_REFERENCE) != 0) {
 		// this is always an Annotation
-		Annotation annotation = (Annotation) (isTypeAnnotation ? this.typeAnnotationStack[this.typeAnnotationPtr] : this.expressionStack[this.expressionPtr]);
+		Annotation annotation = (Annotation) this.expressionStack[this.expressionPtr];
 		this.patternLocator.match(annotation, this.nodeSet);
 	}
 }
@@ -561,9 +541,9 @@ protected void consumeStatementCatch() {
 				this.patternLocator.match(refs[i], this.nodeSet);
 			}
 		} else {
-			this.patternLocator.match(localDeclaration.type, this.nodeSet);
-		}
+		this.patternLocator.match(localDeclaration.type, this.nodeSet);
 	}
+}
 }
 
 protected void consumeTypeArgumentList1() {
@@ -661,11 +641,6 @@ protected void consumeTypeArguments() {
             }
 		}
 	}
-}
-
-protected void consumeTypeElidedLambdaParameter(boolean parenthesized) {
-	super.consumeTypeElidedLambdaParameter(parenthesized);
-	this.patternLocator.match((LocalDeclaration) this.astStack[this.astPtr], this.nodeSet);
 }
 
 protected void consumeTypeParameter1WithExtends() {
@@ -774,8 +749,8 @@ protected void consumeWildcardBoundsSuper() {
 	}
 }
 
-protected TypeReference augmentTypeWithAdditionalDimensions(TypeReference typeRef, int additionalDimensions, Annotation [][] additionalAnnotations, boolean isVarargs) {
-	TypeReference result = super.augmentTypeWithAdditionalDimensions(typeRef, additionalDimensions, additionalAnnotations, isVarargs);
+protected TypeReference copyDims(TypeReference typeRef, int dim) {
+	TypeReference result = super.copyDims(typeRef, dim);
 	 if (this.nodeSet.removePossibleMatch(typeRef) != null)
 		this.nodeSet.addPossibleMatch(result);
 	 else if (this.nodeSet.removeTrustedMatch(typeRef) != null)
@@ -789,8 +764,8 @@ protected TypeReference getTypeReference(int dim) {
 	}
 	return typeRef;
 }
-protected NameReference getUnspecifiedReference(boolean rejectTypeAnnotations) {
-	NameReference nameRef = super.getUnspecifiedReference(rejectTypeAnnotations);
+protected NameReference getUnspecifiedReference() {
+	NameReference nameRef = super.getUnspecifiedReference();
 	if (this.patternFineGrain == 0) {
 		this.patternLocator.match(nameRef, this.nodeSet); // NB: Don't check container since unspecified reference can happen anywhere
 	} else if ((this.patternFineGrain & IJavaSearchConstants.QUALIFIED_REFERENCE) != 0) {

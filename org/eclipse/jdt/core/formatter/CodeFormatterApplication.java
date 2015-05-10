@@ -1,5 +1,5 @@
 /*******************************************************************************
- *  Copyright (c) 2005, 2013 IBM Corporation and others.
+ *  Copyright (c) 2005, 2011 IBM Corporation and others.
  *  All rights reserved. This program and the accompanying materials
  *  are made available under the terms of the Eclipse Public License v1.0
  *  which accompanies this distribution, and is available at
@@ -36,7 +36,7 @@ import org.eclipse.text.edits.TextEdit;
 
 /**
  * Implements an Eclipse Application for org.eclipse.jdt.core.JavaCodeFormatter.
- * 
+ *
  * <p>On MacOS, when invoked using the Eclipse executable, the "user.dir" property is set to the folder
  * in which the eclipse.ini file is located. This makes it harder to use relative paths to point to the 
  * files to be formatted or the configuration file to use to set the code formatter's options.</p>
@@ -50,7 +50,6 @@ import org.eclipse.text.edits.TextEdit;
  * @noinstantiate This class is not intended to be instantiated by clients.
  * @noextend This class is not intended to be subclassed by clients.
  */
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class CodeFormatterApplication implements IApplication {
 
 	/**

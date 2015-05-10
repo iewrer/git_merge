@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,7 +9,9 @@
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
+// GROOVY PATCHED
 
+import org.codehaus.jdt.groovy.integration.LanguageSupportFactory;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.runtime.CoreException;
@@ -60,18 +62,18 @@ public PackageFragmentRootInfo() {
 static Object[] computeFolderNonJavaResources(IPackageFragmentRoot root, IContainer folder, char[][] inclusionPatterns, char[][] exclusionPatterns) throws JavaModelException {
 	IResource[] nonJavaResources = new IResource[5];
 	int nonJavaResourcesCounter = 0;
+	JavaProject project = (JavaProject) root.getJavaProject();
 	try {
+	    // GROOVY start
+		// here, we only care about non-source package roots in Groovy projects
+		boolean isInterestingPackageRoot = LanguageSupportFactory.isInterestingProject(project.getProject()) && root.getRawClasspathEntry().getEntryKind() != IClasspathEntry.CPE_SOURCE;
+		// GROOVY end
+		IClasspathEntry[] classpath = project.getResolvedClasspath();
 		IResource[] members = folder.members();
 		int length = members.length;
 		if (length > 0) {
-			// if package fragment root refers to folder in another IProject, then
-			// folder.getProject() is different than root.getJavaProject().getProject()
-			// use the other java project's options to verify the name
-			IJavaProject otherJavaProject = JavaCore.create(folder.getProject());
-			String sourceLevel = otherJavaProject.getOption(JavaCore.COMPILER_SOURCE, true);
-			String complianceLevel = otherJavaProject.getOption(JavaCore.COMPILER_COMPLIANCE, true);
-			JavaProject javaProject = (JavaProject) root.getJavaProject();
-			IClasspathEntry[] classpath = javaProject.getResolvedClasspath();
+			String sourceLevel = project.getOption(JavaCore.COMPILER_SOURCE, true);
+			String complianceLevel = project.getOption(JavaCore.COMPILER_COMPLIANCE, true);
 			nextResource: for (int i = 0; i < length; i++) {
 				IResource member = members[i];
 				switch (member.getType()) {
@@ -79,7 +81,14 @@ static Object[] computeFolderNonJavaResources(IPackageFragmentRoot root, IContai
 						String fileName = member.getName();
 
 						// ignore .java files that are not excluded
-						if (Util.isValidCompilationUnitName(fileName, sourceLevel, complianceLevel) && !Util.isExcluded(member, inclusionPatterns, exclusionPatterns))
+					    // GROOVY start
+						/* old {
+						 if (Util.isValidCompilationUnitName(fileName, sourceLevel, complianceLevel) && !Util.isExcluded(member, inclusionPatterns, exclusionPatterns))
+						} new */
+						if ((Util.isValidCompilationUnitName(fileName, sourceLevel, complianceLevel) && !Util.isExcluded(member, inclusionPatterns, exclusionPatterns)) &&
+								// we want to show groovy scripts that are coming from class folders
+								!(isInterestingPackageRoot && LanguageSupportFactory.isInterestingSourceFile(fileName)))
+						// GROOVY end
 							continue nextResource;
 						// ignore .class files
 						if (Util.isValidClassFileName(fileName, sourceLevel, complianceLevel))

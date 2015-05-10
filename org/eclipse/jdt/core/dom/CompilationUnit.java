@@ -10,6 +10,7 @@
  *******************************************************************************/
 
 package org.eclipse.jdt.core.dom;
+// GROOVY PATCHED
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,6 +33,15 @@ import org.eclipse.text.edits.TextEdit;
  * The source range for this type of node is ordinarily the entire source file,
  * including leading and trailing whitespace and comments.
  * </p>
+ * For JLS2:
+ * <pre>
+ * CompilationUnit:
+ *    [ PackageDeclaration ]
+ *        { ImportDeclaration }
+ *        { TypeDeclaration | <b>;</b> }
+ * </pre>
+ * For JLS3, the kinds of type declarations
+ * grew to include enum and annotation type declarations:
  * <pre>
  * CompilationUnit:
  *    [ PackageDeclaration ]
@@ -42,7 +52,6 @@ import org.eclipse.text.edits.TextEdit;
  * @since 2.0
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
-@SuppressWarnings({ "rawtypes", "unchecked" })
 public class CompilationUnit extends ASTNode {
 
 	/**
@@ -196,6 +205,9 @@ public class CompilationUnit extends ASTNode {
 	 *
 	 * @param ast the AST that is to own this node
 	 */
+	// GROOVY start: made protected from default
+	protected 
+	// GROOVY end
 	CompilationUnit(AST ast) {
 		super(ast);
 	}
@@ -203,6 +215,9 @@ public class CompilationUnit extends ASTNode {
 	/* (omit javadoc for this method)
 	 * Method declared on ASTNode.
 	 */
+	// GROOVY start: make protected (from default)
+	protected
+	// GROOVY end
 	void accept0(ASTVisitor visitor) {
 		boolean visitChildren = visitor.visit(this);
 		if (visitChildren) {
@@ -869,20 +884,16 @@ public class CompilationUnit extends ASTNode {
 	 * representing the corresponding edits to the original
 	 * source code string.
 	 * <p>
-	 * Note that this way of manipulating an AST only allows a single line of modifications,
-	 * and it lacks important functionality like
-	 * {@link ASTRewrite#createStringPlaceholder(String, int) string placeholders} and support for
-	 * {@link ASTRewrite#createCopyTarget(ASTNode) copying} nodes including comments and formatting.
-	 * </p>
-	 * <p>
-	 * To future-proof your code, <em>consider using an external {@link ASTRewrite} instead</em>,
-	 * which doesn't suffer from these limitations and allows to modify an AST in a non-destructive way.
+	 * Note that this way of manipulating an AST only allows a single line of modifications.
+	 * To modify an AST in a non-destructive way, use an external {@link ASTRewrite}.
+	 * As an added benefit, you can then also use
+	 * {@link ASTRewrite#createStringPlaceholder(String, int) string placeholders} and
+	 * {@link ASTRewrite#createCopyTarget(ASTNode) copy} nodes including comments and formatting.
 	 * </p>
 	 *
 	 * @exception IllegalArgumentException if this compilation unit is
 	 * marked as unmodifiable, or if this compilation unit has already
 	 * been tampered with, or recording has already been enabled
-	 * @see ASTRewrite
 	 * @since 3.0
 	 */
 	public void recordModifications() {

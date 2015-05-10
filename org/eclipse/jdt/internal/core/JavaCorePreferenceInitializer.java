@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,7 +9,7 @@
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
-
+// GROOVY PATCHED
 import java.util.*;
 
 import org.eclipse.core.runtime.preferences.*;
@@ -22,7 +22,6 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
  * Initially done in JavaCore.initializeDefaultPreferences which was deprecated
  * with new eclipse preferences mechanism.
  */
-@SuppressWarnings({ "unchecked", "rawtypes" })
 public class JavaCorePreferenceInitializer extends AbstractPreferenceInitializer {
 
 	/**
@@ -104,6 +103,21 @@ public class JavaCorePreferenceInitializer extends AbstractPreferenceInitializer
 			defaultPreferences.put(optionName, (String)entry.getValue());
 			optionNames.add(optionName);
 		}
+		
+		// GROOVY start
+		// add groovy-specific options
+		optionNames.add(CompilerOptions.OPTIONG_GroovyExtraImports);
+		optionNames.add(CompilerOptions.OPTIONG_GroovyTransformsToRunOnReconcile);
+		optionNames.add(CompilerOptions.OPTIONG_GroovyClassLoaderPath);
+
+		// these three may not be necessary
+		optionNames.add(CompilerOptions.OPTIONG_GroovyFlags);
+		optionNames.add(CompilerOptions.OPTIONG_BuildGroovyFiles);
+		optionNames.add(CompilerOptions.OPTIONG_GroovyProjectName);
+		
+
+		optionNames.add(CompilerOptions.OPTIONG_GroovyCustomizerClassesList);
+		// GROOVY end
 
 		// Initialize deprecated options
 		initializeDeprecatedOptions();

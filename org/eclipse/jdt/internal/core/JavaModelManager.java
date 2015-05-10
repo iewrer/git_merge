@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,10 +12,9 @@
  *                                                           (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=102422)
  *     Stephan Herrmann - Contribution for Bug 346010 - [model] strange initialization dependency in OptionTests
  *     Terry Parker <tparker@google.com> - DeltaProcessor misses state changes in archive files, see https://bugs.eclipse.org/bugs/show_bug.cgi?id=357425
- *     Thirumala Reddy Mutchukota <thirumala@google.com> - Contribution to bug: https://bugs.eclipse.org/bugs/show_bug.cgi?id=411423
- *     Terry Parker <tparker@google.com> - [performance] Low hit rates in JavaModel caches - https://bugs.eclipse.org/421165
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
+// GROOVY PATCHED
 
 import java.io.*;
 import java.net.URI;
@@ -29,6 +28,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.codehaus.jdt.groovy.integration.LanguageSupportFactory;
 import org.eclipse.core.resources.*;
 import org.eclipse.core.runtime.*;
 import org.eclipse.core.runtime.content.IContentTypeManager.ContentTypeChangeEvent;
@@ -86,13 +86,10 @@ import org.xml.sax.SAXException;
  * The single instance of <code>JavaModelManager</code> is available from
  * the static method <code>JavaModelManager.getJavaModelManager()</code>.
  */
-@SuppressWarnings({ "rawtypes", "unchecked" })
 public class JavaModelManager implements ISaveParticipant, IContentTypeChangeListener {
 
 	private static final String NON_CHAINING_JARS_CACHE = "nonChainingJarsCache"; //$NON-NLS-1$
 	private static final String INVALID_ARCHIVES_CACHE = "invalidArchivesCache";  //$NON-NLS-1$
-	private static final String EXTERNAL_FILES_CACHE = "externalFilesCache";  //$NON-NLS-1$
-	private static final String ASSUMED_EXTERNAL_FILES_CACHE = "assumedExternalFilesCache";  //$NON-NLS-1$
 
 	/**
 	 * Define a zip cache object.
@@ -305,7 +302,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 
 	public static class CompilationParticipants {
 
-		private final static int MAX_SOURCE_LEVEL = 8; // 1.1 to 1.8
+		private final static int MAX_SOURCE_LEVEL = 7; // 1.1 to 1.7
 
 		/*
 		 * The registered compilation participants (a table from int (source level) to Object[])
@@ -449,8 +446,6 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 					return 5;
 				case ClassFileConstants.MAJOR_VERSION_1_7:
 					return 6;
-				case ClassFileConstants.MAJOR_VERSION_1_8:
-					return 7;
 				default:
 					// all other cases including ClassFileConstants.MAJOR_VERSION_1_1
 					return 0;
@@ -1431,7 +1426,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	public static boolean CP_RESOLVE_VERBOSE_ADVANCED = false;
 	public static boolean CP_RESOLVE_VERBOSE_FAILURE = false;
 	public static boolean ZIP_ACCESS_VERBOSE = false;
-	
+
 	/**
 	 * A cache of opened zip files per thread.
 	 * (for a given thread, the object value is a HashMap from IPath to java.io.ZipFile)
@@ -1441,26 +1436,14 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	private UserLibraryManager userLibraryManager;
 	
 	/*
-	 * A set of IPaths for jars that are known to not contain a chaining (through MANIFEST.MF) to another library
+	 * List of IPath of jars that are known to not contain a chaining (through MANIFEST.MF) to another library
 	 */
 	private Set nonChainingJars;
-	
+
 	/*
-	 * A set of IPaths for jars that are known to be invalid - such as not being a valid/known format
+	 * List of IPath of jars that are known to be invalid - such as not being a valid/known format
 	 */
 	private Set invalidArchives;
-
-	/*
-	 * A set of IPaths for files that are known to be external to the workspace.
-	 * Need not be referenced by the classpath.
-	 */
-	private Set externalFiles;
-
-	/*
-	 * A set of IPaths for files that do not exist on the file system but are assumed to be
-	 * external archives (rather than external folders).
-	 */
-	private Set assumedExternalFiles;
 
 	/**
 	 * Update the classpath variable cache
@@ -1596,8 +1579,6 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			this.indexManager = new IndexManager();
 			this.nonChainingJars = loadClasspathListCache(NON_CHAINING_JARS_CACHE);
 			this.invalidArchives = loadClasspathListCache(INVALID_ARCHIVES_CACHE);
-			this.externalFiles = loadClasspathListCache(EXTERNAL_FILES_CACHE);
-			this.assumedExternalFiles = loadClasspathListCache(ASSUMED_EXTERNAL_FILES_CACHE);
 			String includeContainerReferencedLib = System.getProperty(RESOLVE_REFERENCED_LIBRARIES_FOR_CONTAINERS);
 			this.resolveReferencedLibrariesForContainers = TRUE.equalsIgnoreCase(includeContainerReferencedLib);
 		}
@@ -1615,7 +1596,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		if (this.nonChainingJars != null)
 			this.nonChainingJars.add(path);
 	}
-	
+
 	public void addInvalidArchive(IPath path) {
 		// unlikely to be null
 		if (this.invalidArchives == null) {
@@ -1623,20 +1604,6 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		}
 		if(this.invalidArchives != null) {
 			this.invalidArchives.add(path);
-		}
-	}
-
-	/**
-	 * Adds a path to the external files cache. It is the responsibility of callers to
-	 * determine the file's existence, as determined by  {@link File#isFile()}.
-	 */
-	public void addExternalFile(IPath path) {
-		// unlikely to be null
-		if (this.externalFiles == null) {
-			this.externalFiles = Collections.synchronizedSet(new HashSet());
-		}
-		if(this.externalFiles != null) {
-			this.externalFiles.add(path);
 		}
 	}
 
@@ -2125,7 +2092,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		int optionLevel = getOptionLevel(optionName);
 		if (optionLevel != UNKNOWN_OPTION){
 			IPreferencesService service = Platform.getPreferencesService();
-			String value = service.get(optionName, null, this.preferencesLookup);
+			String value =  service.get(optionName, null, this.preferencesLookup);
 			if (value == null && optionLevel == DEPRECATED_OPTION) {
 				// May be a deprecated option, retrieve the new value in compatible options
 				String[] compatibleOptions = (String[]) this.deprecatedOptions.get(optionName);
@@ -2167,7 +2134,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 				return newValue == null ? null : newValue.trim();
 		}
 		return null;
-	}
+		}
 
 	/**
 	 * Returns whether an option name is known or not.
@@ -2285,7 +2252,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		defaultOptionsMap.put(JavaCore.CORE_JAVA_BUILD_ORDER, JavaCore.IGNORE);
 		defaultOptionsMap.put(JavaCore.CORE_INCOMPLETE_CLASSPATH, JavaCore.ERROR);
 		defaultOptionsMap.put(JavaCore.CORE_CIRCULAR_CLASSPATH, JavaCore.ERROR);
-		defaultOptionsMap.put(JavaCore.CORE_INCOMPATIBLE_JDK_LEVEL, JavaCore.IGNORE); 
+		defaultOptionsMap.put(JavaCore.CORE_INCOMPATIBLE_JDK_LEVEL, JavaCore.IGNORE);
 		defaultOptionsMap.put(JavaCore.CORE_OUTPUT_LOCATION_OVERLAPPING_ANOTHER_SOURCE, JavaCore.ERROR);
 		defaultOptionsMap.put(JavaCore.CORE_ENABLE_CLASSPATH_EXCLUSION_PATTERNS, JavaCore.ENABLED);
 		defaultOptionsMap.put(JavaCore.CORE_ENABLE_CLASSPATH_MULTIPLE_OUTPUT_LOCATIONS, JavaCore.ENABLED);
@@ -2636,7 +2603,13 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			if (primaryWCs != null) {
 				for (int i = 0; i < primaryLength; i++) {
 					ICompilationUnit primaryWorkingCopy = primaryWCs[i];
-					ICompilationUnit workingCopy = new CompilationUnit((PackageFragment) primaryWorkingCopy.getParent(), primaryWorkingCopy.getElementName(), owner);
+				    // GROOVY start
+			        /* old {
+			        ICompilationUnit workingCopy = new CompilationUnit((PackageFragment) primaryWorkingCopy.getParent(), primaryWorkingCopy.getElementName(), owner);
+			        } new */
+					ICompilationUnit workingCopy = LanguageSupportFactory.newCompilationUnit((PackageFragment) primaryWorkingCopy.getParent(), primaryWorkingCopy.getElementName(), owner);
+			        // GROOVY end
+			        
 					if (!workingCopyToInfos.containsKey(workingCopy))
 						result[index++] = primaryWorkingCopy;
 				}
@@ -3119,7 +3092,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	public boolean isNonChainingJar(IPath path) {
 		return this.nonChainingJars != null && this.nonChainingJars.contains(path);
 	}
-	
+
 	public boolean isInvalidArchive(IPath path) {
 		return this.invalidArchives != null && this.invalidArchives.contains(path);
 	}
@@ -3128,52 +3101,6 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		if (this.invalidArchives != null) {
 			this.invalidArchives.remove(path);
 		}
-	}
-
-	/**
-	 * Returns the cached value for whether the file referred to by <code>path</code> exists
-	 * and is a file, as determined by the return value of {@link File#isFile()}.
-	 */
-	public boolean isExternalFile(IPath path) {
-		return this.externalFiles != null && this.externalFiles.contains(path);
-	}
-
-	/**
-	 * Removes the cached state of a single entry in the externalFiles cache.
-	 */
-	public void clearExternalFileState(IPath path) {
-		if (this.externalFiles != null) {
-			this.externalFiles.remove(path);
-		}
-	}
-
-	/**
-	 * Resets the entire externalFiles cache.
-	 */
-	public void resetExternalFilesCache() {
-		if (this.externalFiles != null) {
-			this.externalFiles.clear();
-		}
-	}
-
-	/**
-	 * Returns whether the provided {@link IPath} appears to be an external file,
-	 * which is true if the path does not represent an internal resource, does not
-	 * exist on the file system, and does have a file extension (this is the definition
-	 * provided by {@link ExternalFoldersManager#isExternalFolderPath}).
-	 */
-	public boolean isAssumedExternalFile(IPath path) {
-		if (this.assumedExternalFiles == null) {
-			return false;
-		}
-		return this.assumedExternalFiles.contains(path);
-	}
-
-	/**
-	 * Adds the provided {@link IPath} to the list of assumed external files.
-	 */
-	public void addAssumedExternalFile(IPath path) {
-		this.assumedExternalFiles.add(path);
 	}
 
 	public void setClasspathBeingResolved(IJavaProject project, boolean classpathIsResolved) {
@@ -3197,7 +3124,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			}
 		} catch (IOException e) {
 			if (cacheFile.exists())
-				Util.log(e, "Unable to read JavaModelManager " + cacheName + " file"); //$NON-NLS-1$ //$NON-NLS-2$
+				Util.log(e, "Unable to read non-chaining jar cache file"); //$NON-NLS-1$
 		} finally {
 			if (in != null) {
 				try {
@@ -3209,7 +3136,7 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		}
 		return Collections.synchronizedSet(pathCache);
 	}
-	
+
 	private File getClasspathListFile(String fileName) {
 		return JavaCore.getPlugin().getStateLocation().append(fileName).toFile(); 
 	}
@@ -3238,17 +3165,13 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		this.nonChainingJars = Collections.synchronizedSet(result);
 		return this.nonChainingJars;
 	}
-	
+
 	private Set getClasspathListCache(String cacheName) throws CoreException {
 		if (cacheName == NON_CHAINING_JARS_CACHE) 
 			return getNonChainingJarsCache();
 		else if (cacheName == INVALID_ARCHIVES_CACHE)
 			return this.invalidArchives;
-		else if (cacheName == EXTERNAL_FILES_CACHE)
-			return this.externalFiles;
-		else if (cacheName == ASSUMED_EXTERNAL_FILES_CACHE)
-			return this.assumedExternalFiles;
-		else
+		else 
 			return null;
 	}
 	
@@ -3990,10 +3913,6 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 			this.nonChainingJars.clear();
 		if (this.invalidArchives != null) 
 			this.invalidArchives.clear();
-		if (this.externalFiles != null)
-			this.externalFiles.clear();
-		if (this.assumedExternalFiles != null)
-			this.assumedExternalFiles.clear();
 	}
 
 	/*
@@ -4130,24 +4049,24 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		}
 
 		void save(ISaveContext context) throws IOException, JavaModelException {
-			saveProjects(getJavaModel().getJavaProjects());
-			// remove variables that should not be saved
-			HashMap varsToSave = null;
-			Iterator iterator = JavaModelManager.this.variables.entrySet().iterator();
-			IEclipsePreferences defaultPreferences = getDefaultPreferences();
-			while (iterator.hasNext()) {
-				Map.Entry entry = (Map.Entry) iterator.next();
-				String varName = (String) entry.getKey();
-				if (defaultPreferences.get(CP_VARIABLE_PREFERENCES_PREFIX + varName, null) != null // don't save classpath variables from the default preferences as there is no delta if they are removed
-						|| CP_ENTRY_IGNORE_PATH.equals(entry.getValue())) {
+				saveProjects(getJavaModel().getJavaProjects());
+					// remove variables that should not be saved
+					HashMap varsToSave = null;
+					Iterator iterator = JavaModelManager.this.variables.entrySet().iterator();
+					IEclipsePreferences defaultPreferences = getDefaultPreferences();
+					while (iterator.hasNext()) {
+						Map.Entry entry = (Map.Entry) iterator.next();
+						String varName = (String) entry.getKey();
+						if (defaultPreferences.get(CP_VARIABLE_PREFERENCES_PREFIX + varName, null) != null // don't save classpath variables from the default preferences as there is no delta if they are removed
+								|| CP_ENTRY_IGNORE_PATH.equals(entry.getValue())) {
 
-					if (varsToSave == null)
-						varsToSave = new HashMap(JavaModelManager.this.variables);
-					varsToSave.remove(varName);
-				}
+							if (varsToSave == null)
+								varsToSave = new HashMap(JavaModelManager.this.variables);
+							varsToSave.remove(varName);
+						}
+					}
+					saveVariables(varsToSave != null ? varsToSave : JavaModelManager.this.variables);
 			}
-			saveVariables(varsToSave != null ? varsToSave : JavaModelManager.this.variables);
-		}
 
 		private void saveAccessRule(ClasspathAccessRule rule) throws IOException {
 			saveInt(rule.problemId);
@@ -4339,11 +4258,9 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 
 		switch(context.getKind()) {
 			case ISaveContext.FULL_SAVE : {
-				// save non-chaining jar, invalid jar and external file caches on full save
+				// save non-chaining jar and invalid jar caches on full save
 				saveClasspathListCache(NON_CHAINING_JARS_CACHE);
 				saveClasspathListCache(INVALID_ARCHIVES_CACHE);
-				saveClasspathListCache(EXTERNAL_FILES_CACHE);
-				saveClasspathListCache(ASSUMED_EXTERNAL_FILES_CACHE);
 	
 				// will need delta since this save (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=38658)
 				context.needDelta();
@@ -4663,21 +4580,20 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 		Iterator packages = secondaryTypes.values().iterator();
 		while (packages.hasNext()) {
 			HashMap types = (HashMap) packages.next();
-			HashMap tempTypes = new HashMap(types.size());
 			Iterator names = types.entrySet().iterator();
 			while (names.hasNext()) {
 				Map.Entry entry = (Map.Entry) names.next();
 				String typeName = (String) entry.getKey();
 				String path = (String) entry.getValue();
-				names.remove();
 				if (org.eclipse.jdt.internal.core.util.Util.isJavaLikeFileName(path)) {
 					IFile file = ResourcesPlugin.getWorkspace().getRoot().getFile(new Path(path));
 					ICompilationUnit unit = JavaModelManager.createCompilationUnitFrom(file, null);
 					IType type = unit.getType(typeName);
-					tempTypes.put(typeName, type);
+					types.put(typeName, type); // replace stored path with type itself
+				} else {
+					names.remove();
 				}
 			}
-			types.putAll(tempTypes);
 		}
 
 		// Store result in per project info cache if still null or there's still an indexing cache (may have been set by another thread...)
@@ -4945,47 +4861,47 @@ public class JavaModelManager implements ISaveParticipant, IContentTypeChangeLis
 	}
 
 	public void setOptions(Hashtable newOptions) {
-		Hashtable cachedValue = newOptions == null ? null : new Hashtable(newOptions);
-		IEclipsePreferences defaultPreferences = getDefaultPreferences();
-		IEclipsePreferences instancePreferences = getInstancePreferences();
+			Hashtable cachedValue = newOptions == null ? null : new Hashtable(newOptions);
+			IEclipsePreferences defaultPreferences = getDefaultPreferences();
+			IEclipsePreferences instancePreferences = getInstancePreferences();
 
-		if (newOptions == null){
-			try {
+			if (newOptions == null){
+				try {
 				instancePreferences.clear();
-			} catch(BackingStoreException e) {
-				// ignore
-			}
-		} else {
-			Enumeration keys = newOptions.keys();
-			while (keys.hasMoreElements()){
-				String key = (String)keys.nextElement();
-				int optionLevel = getOptionLevel(key);
-				if (optionLevel == UNKNOWN_OPTION) continue; // unrecognized option
-				if (key.equals(JavaCore.CORE_ENCODING)) {
-					if (cachedValue != null) {
-						cachedValue.put(key, JavaCore.getEncoding());
+				} catch(BackingStoreException e) {
+					// ignore
+				}
+			} else {
+				Enumeration keys = newOptions.keys();
+				while (keys.hasMoreElements()){
+					String key = (String)keys.nextElement();
+					int optionLevel = getOptionLevel(key);
+					if (optionLevel == UNKNOWN_OPTION) continue; // unrecognized option
+					if (key.equals(JavaCore.CORE_ENCODING)) {
+						if (cachedValue != null) {
+							cachedValue.put(key, JavaCore.getEncoding());
+						}
+						continue; // skipped, contributed by resource prefs
 					}
-					continue; // skipped, contributed by resource prefs
-				}
-				String value = (String) newOptions.get(key);
-				String defaultValue = defaultPreferences.get(key, null);
-				// Store value in preferences
-				if (defaultValue != null && defaultValue.equals(value)) {
-					value = null;
-				}
+					String value = (String)newOptions.get(key);
+					String defaultValue = defaultPreferences.get(key, null);
+					// Store value in preferences
+					if (defaultValue != null && defaultValue.equals(value)) {
+						value = null;
+					}
 				storePreference(key, value, instancePreferences, newOptions);
+				}
+				try {
+			// persist options
+			instancePreferences.flush();
+				} catch(BackingStoreException e) {
+					// ignore
+				}
 			}
-			try {
-				// persist options
-				instancePreferences.flush();
-			} catch(BackingStoreException e) {
-				// ignore
-			}
+			// update cache
+			Util.fixTaskTags(cachedValue);
+			this.optionsCache = cachedValue;
 		}
-		// update cache
-		Util.fixTaskTags(cachedValue);
-		this.optionsCache = cachedValue;
-	}
 
 	public void startup() throws CoreException {
 		try {

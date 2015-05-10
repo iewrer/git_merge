@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,12 +9,14 @@
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
+// GROOVY PATCHED
 
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map;
 
+import org.codehaus.jdt.groovy.integration.LanguageSupportFactory;
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IResource;
@@ -44,7 +46,6 @@ import org.eclipse.jdt.internal.core.util.Util;
 /**
  * @see IPackageFragment
  */
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class PackageFragment extends Openable implements IPackageFragment, SuffixConstants {
 	/**
 	 * Constant empty list of class files
@@ -57,12 +58,9 @@ public class PackageFragment extends Openable implements IPackageFragment, Suffi
 
 	public String[] names;
 
-	private boolean isValidPackageName;
-
 protected PackageFragment(PackageFragmentRoot root, String[] names) {
 	super(root);
 	this.names = names;
-	this.isValidPackageName = internalIsValidPackageName();
 }
 /**
  * @see Openable
@@ -87,7 +85,13 @@ protected boolean buildStructure(OpenableElementInfo info, IProgressMonitor pm, 
 						&& !Util.isExcluded(child, inclusionPatterns, exclusionPatterns)) {
 					IJavaElement childElement;
 					if (kind == IPackageFragmentRoot.K_SOURCE && Util.isValidCompilationUnitName(child.getName(), sourceLevel, complianceLevel)) {
+					    // GROOVY start
+	                    /* old {
 						childElement = new CompilationUnit(this, child.getName(), DefaultWorkingCopyOwner.PRIMARY);
+	                    } new */
+					    childElement = LanguageSupportFactory.newCompilationUnit(this, child.getName(), DefaultWorkingCopyOwner.PRIMARY);
+	                    // GROOVY end
+						
 						vChildren.add(childElement);
 					} else if (kind == IPackageFragmentRoot.K_BINARY && Util.isValidClassFileName(child.getName(), sourceLevel, complianceLevel)) {
 						childElement = getClassFile(child.getName());
@@ -146,7 +150,12 @@ public void copy(IJavaElement container, IJavaElement sibling, String rename, bo
 public ICompilationUnit createCompilationUnit(String cuName, String contents, boolean force, IProgressMonitor monitor) throws JavaModelException {
 	CreateCompilationUnitOperation op= new CreateCompilationUnitOperation(this, cuName, contents, force);
 	op.runOperation(monitor);
+    // GROOVY start
+    /* old {
 	return new CompilationUnit(this, cuName, DefaultWorkingCopyOwner.PRIMARY);
+    } new */
+    return LanguageSupportFactory.newCompilationUnit(this, cuName, DefaultWorkingCopyOwner.PRIMARY);
+    // GROOVY end
 }
 /**
  * @see JavaElement
@@ -216,7 +225,12 @@ public ICompilationUnit getCompilationUnit(String cuName) {
 	if (!org.eclipse.jdt.internal.core.util.Util.isJavaLikeFileName(cuName)) {
 		throw new IllegalArgumentException(Messages.convention_unit_notJavaName);
 	}
-	return new CompilationUnit(this, cuName, DefaultWorkingCopyOwner.PRIMARY);
+    // GROOVY start
+    /* old {
+    return new CompilationUnit(this, cuName, DefaultWorkingCopyOwner.PRIMARY);
+    } new */
+	return LanguageSupportFactory.newCompilationUnit(this, cuName, DefaultWorkingCopyOwner.PRIMARY);
+    // GROOVY end
 }
 /**
  * @see IPackageFragment#getCompilationUnits()
@@ -275,7 +289,13 @@ public IJavaElement getHandleFromMemento(String token, MementoTokenizer memento,
 		case JEM_COMPILATIONUNIT:
 			if (!memento.hasMoreTokens()) return this;
 			String cuName = memento.nextToken();
-			JavaElement cu = new CompilationUnit(this, cuName, owner);
+		    // GROOVY start
+		    /* old {
+		    JavaElement cu = new CompilationUnit(this, cuName, owner);
+		    } new */
+			JavaElement cu = LanguageSupportFactory.newCompilationUnit(this, cuName, owner);
+		    // GROOVY end
+			
 			return cu.getHandleFromMemento(memento, owner);
 	}
 	return null;
@@ -387,11 +407,14 @@ public boolean hasSubpackages() throws JavaModelException {
 	}
 	return false;
 }
-protected boolean internalIsValidPackageName() {
-	// if package fragment refers to folder in another IProject, then
-	// resource().getProject() is different than getJavaProject().getProject()
-	// use the other java project's options to verify the name
-	IJavaProject javaProject = JavaCore.create(resource().getProject());
+/**
+ * @see IPackageFragment#isDefaultPackage()
+ */
+public boolean isDefaultPackage() {
+	return this.names.length == 0;
+}
+private boolean isValidPackageName() {
+	JavaProject javaProject = (JavaProject) getJavaProject();
 	String sourceLevel = javaProject.getOption(JavaCore.COMPILER_SOURCE, true);
 	String complianceLevel = javaProject.getOption(JavaCore.COMPILER_COMPLIANCE, true);
 	for (int i = 0, length = this.names.length; i < length; i++) {
@@ -399,15 +422,6 @@ protected boolean internalIsValidPackageName() {
 			return false;
 	}
 	return true;
-}
-/**
- * @see IPackageFragment#isDefaultPackage()
- */
-public boolean isDefaultPackage() {
-	return this.names.length == 0;
-}
-protected final boolean isValidPackageName() {
-	return this.isValidPackageName;
 }
 /**
  * @see ISourceManipulation#move(IJavaElement, IJavaElement, String, boolean, IProgressMonitor)
@@ -491,7 +505,7 @@ public String getAttachedJavadoc(IProgressMonitor monitor) throws JavaModelExcep
 	pathBuffer.append(packPath).append('/').append(JavadocConstants.PACKAGE_FILE_NAME);
 
 	if (monitor != null && monitor.isCanceled()) throw new OperationCanceledException();
-	String contents = getURLContents(baseLocation, String.valueOf(pathBuffer));
+	String contents = getURLContents(String.valueOf(pathBuffer));
 	if (monitor != null && monitor.isCanceled()) throw new OperationCanceledException();
 	if (contents == null) return null;
 	

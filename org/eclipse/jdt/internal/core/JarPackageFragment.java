@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2008 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,12 +9,14 @@
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
+// GROOVY PATCHED
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import org.codehaus.jdt.groovy.integration.LanguageSupportFactory;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -32,7 +34,6 @@ import org.eclipse.jdt.internal.core.util.Util;
  *
  * @see org.eclipse.jdt.core.IPackageFragment
  */
-@SuppressWarnings({ "rawtypes", "unchecked" })
 class JarPackageFragment extends PackageFragment {
 /**
  * Constructs a package fragment that is contained within a jar or a zip.
@@ -84,11 +85,23 @@ private Object[] computeNonJavaResources(ArrayList entryNames) {
 		return JavaElementInfo.NO_NON_JAVA_RESOURCES;
 	HashMap jarEntries = new HashMap(); // map from IPath to IJarEntryResource
 	HashMap childrenMap = new HashMap(); // map from IPath to ArrayList<IJarEntryResource>
+
+	// GROOVY start
+	boolean isInteresting = LanguageSupportFactory.isInterestingProject(this.getJavaProject().getProject());
+	// GROOVY end
+
 	ArrayList topJarEntries = new ArrayList();
 	for (int i = 0; i < length; i++) {
 		String resName = (String) entryNames.get(i);
 		// consider that a .java file is not a non-java resource (see bug 12246 Packages view shows .class and .java files when JAR has source)
+		// GROOVY start 
+		// we want to show uncompiled groovy scripts that are coming in from a jar file
+		/* old {
 		if (!Util.isJavaLikeFileName(resName)) {
+		} new */
+		if ( (!Util.isJavaLikeFileName(resName) || 
+				(isInteresting && LanguageSupportFactory.isInterestingSourceFile(resName)))) {
+			// GROOVY end
 			IPath filePath = new Path(resName);
 			IPath childPath = filePath.removeFirstSegments(this.names.length);
 			if (jarEntries.containsKey(childPath)) {
@@ -196,9 +209,6 @@ public Object[] getNonJavaResources() throws JavaModelException {
 	} else {
 		return storedNonJavaResources();
 	}
-}
-protected boolean internalIsValidPackageName() {
-	return true;
 }
 /**
  * Jars and jar entries are all read only

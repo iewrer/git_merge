@@ -7,8 +7,6 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann - Contribution for
- *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
  *******************************************************************************/
 package org.eclipse.jdt.internal.codeassist.complete;
 
@@ -32,7 +30,7 @@ public class CompletionOnArgumentName extends Argument {
 		this.realName = name;
 	}
 
-	public TypeBinding bind(MethodScope scope, TypeBinding typeBinding, boolean used) {
+	public void bind(MethodScope scope, TypeBinding typeBinding, boolean used) {
 
 		super.bind(scope, typeBinding, used);
 		throw new CompletionNodeFound(this, scope);

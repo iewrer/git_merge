@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,6 +9,7 @@
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.internal.core.hierarchy;
+// GROOVY PATCHED
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,6 +21,7 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.core.util.CompilerUtils;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
 import org.eclipse.jdt.internal.compiler.env.IBinaryType;
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
@@ -30,7 +32,6 @@ import org.eclipse.jdt.internal.core.*;
 import org.eclipse.jdt.internal.core.util.ResourceCompilationUnit;
 import org.eclipse.jdt.internal.core.util.Util;
 
-@SuppressWarnings({"rawtypes", "unchecked"})
 public abstract class HierarchyBuilder {
 	/**
 	 * The hierarchy being built.
@@ -79,12 +80,21 @@ public abstract class HierarchyBuilder {
 			unitsToLookInside = workingCopies;
 		}
 		if (project != null) {
+			// GROOVY start - pulled out of the call
+			Map optionMap = project.getOptions(true);
+			CompilerUtils.configureOptionsBasedOnNature(optionMap, project);
+			// GROOVY end
 			SearchableEnvironment searchableEnvironment = project.newSearchableNameEnvironment(unitsToLookInside);
 			this.nameLookup = searchableEnvironment.nameLookup;
 			this.hierarchyResolver =
 				new HierarchyResolver(
 					searchableEnvironment,
+					// GROOVY start
+					/* old {
 					project.getOptions(true),
+					} new */
+					optionMap,
+					// GROOVY end
 					this,
 					new DefaultProblemFactory());
 		}
@@ -170,7 +180,7 @@ public abstract class HierarchyBuilder {
 			case TypeDeclaration.ANNOTATION_TYPE_DECL :
 				// https://bugs.eclipse.org/bugs/show_bug.cgi?id=329663
 				if (this.hierarchy.typeToSuperInterfaces.get(typeHandle) == null)
-					this.hierarchy.addInterface(typeHandle);
+				this.hierarchy.addInterface(typeHandle);
 				break;
 		}
 		if (superinterfaceHandles == null) {

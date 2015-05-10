@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008, 2013 IBM Corporation and others.
+ * Copyright (c) 2008, 2010 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,7 +15,6 @@ import java.lang.reflect.InvocationTargetException;
 
 import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class ReadManager implements Runnable {
 	ICompilationUnit[] units;
 	int nextFileToRead;
@@ -39,7 +38,7 @@ public ReadManager(ICompilationUnit[] files, int length) {
 		Class runtime = Class.forName("java.lang.Runtime"); //$NON-NLS-1$
 		java.lang.reflect.Method m = runtime.getDeclaredMethod("availableProcessors", new Class[0]); //$NON-NLS-1$
 		if (m != null) {
-			Integer result = (Integer) m.invoke(Runtime.getRuntime(), (Object[]) null);
+			Integer result = (Integer) m.invoke(Runtime.getRuntime(), null);
 			threadCount = result.intValue() + 1;
 			if (threadCount < 2)
 				threadCount = 0;

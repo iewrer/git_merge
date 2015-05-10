@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,6 +9,7 @@
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.problem;
+// GROOVY PATCHED
 
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.core.compiler.CharOperation;
@@ -21,6 +22,7 @@ import org.eclipse.jdt.internal.compiler.env.ICompilationUnit;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
 import org.eclipse.jdt.internal.compiler.util.Util;
+import org.eclipse.jdt.internal.core.builder.SourceFile;
 
 /*
  * Compiler error handler, responsible to determine whether
@@ -35,7 +37,7 @@ public class ProblemHandler {
 
 	public final static String[] NoArgument = CharOperation.NO_STRINGS;
 
-	public IErrorHandlingPolicy policy;
+	final public IErrorHandlingPolicy policy;
 	public final IProblemFactory problemFactory;
 	public final CompilerOptions options;
 /*
@@ -117,14 +119,6 @@ public void handle(
 	if (severity == ProblemSeverities.Ignore)
 		return;
 
-	 boolean mandatory = (severity & (ProblemSeverities.Error | ProblemSeverities.Optional)) == ProblemSeverities.Error;
-	 if (severity < ProblemSeverities.InternalError && this.policy.ignoreAllErrors()) { 
-		 // Error is not to be exposed, but clients may need still notification as to whether there are silently-ignored-errors.
-		 if (mandatory)
-			 referenceContext.tagAsHavingIgnoredMandatoryErrors(problemId);
-		 return;
-	 }
-
 	if ((severity & ProblemSeverities.Optional) != 0 && problemId != IProblem.Task  && !this.options.ignoreSourceFolderWarningOption) {
 		ICompilationUnit cu = unitResult.getCompilationUnit();
 		try{
@@ -170,6 +164,7 @@ public void handle(
 
 	switch (severity & ProblemSeverities.Error) {
 		case ProblemSeverities.Error :
+			boolean mandatory = ((severity & ProblemSeverities.Optional) == 0);
 			record(problem, unitResult, referenceContext, mandatory);
 			if ((severity & ProblemSeverities.Fatal) != 0) {
 				// don't abort or tag as error if the error is suppressed
@@ -188,6 +183,13 @@ public void handle(
 			}
 			break;
 		case ProblemSeverities.Warning :
+			// GROOVY start - still required?
+			if ((this.options.groovyFlags & 0x01) != 0) {
+				if ((unitResult.compilationUnit instanceof SourceFile) && ((SourceFile)unitResult.compilationUnit).isInLinkedSourceFolder()) {
+					return;
+				}
+			}
+			// GROOVY end
 			record(problem, unitResult, referenceContext, false);
 			break;
 	}
@@ -216,13 +218,7 @@ public void handle(
 		referenceContext,
 		unitResult);
 }
-public void record(CategorizedProblem problem, CompilationResult unitResult, ReferenceContext referenceContext, boolean mandatoryError) {
-	unitResult.record(problem, referenceContext, mandatoryError);
-}
-/** @return old policy. */
-public IErrorHandlingPolicy switchErrorHandlingPolicy(IErrorHandlingPolicy newPolicy) {
-	IErrorHandlingPolicy presentPolicy = this.policy;
-	this.policy = newPolicy;
-	return presentPolicy;
+public void record(CategorizedProblem problem, CompilationResult unitResult, ReferenceContext referenceContext, boolean optionalError) {
+	unitResult.record(problem, referenceContext, optionalError);
 }
 }

@@ -4,7 +4,8 @@
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
- *Contributors:
+ *
+ * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
@@ -86,10 +87,7 @@ public class Initializer extends FieldDeclaration {
 		if (this.modifiers != 0) {
 			printIndent(indent, output);
 			printModifiers(this.modifiers, output);
-			if (this.annotations != null) {
-				printAnnotations(this.annotations, output);
-				output.append(' ');
-			}
+			if (this.annotations != null) printAnnotations(this.annotations, output);
 			output.append("{\n"); //$NON-NLS-1$
 			if (this.block != null) {
 				this.block.printBody(indent, output);

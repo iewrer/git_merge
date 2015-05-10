@@ -21,7 +21,6 @@ import org.eclipse.jdt.internal.compiler.util.Util;
 /**
  * Parser specialized for decoding javadoc comments
  */
-@SuppressWarnings({"rawtypes", "unchecked"})
 public abstract class AbstractCommentParser implements JavadocTagConstants {
 
 	// Kind of comment parser
@@ -527,8 +526,8 @@ public abstract class AbstractCommentParser implements JavadocTagConstants {
 			isVarargs = false;
 			if (readToken() == TerminalTokens.TokenNameLBRACKET) {
 				// array declaration
+				int dimStart = this.scanner.getCurrentTokenStartPosition();
 				while (readToken() == TerminalTokens.TokenNameLBRACKET) {
-					int dimStart = this.scanner.getCurrentTokenStartPosition();
 					consumeToken();
 					if (readToken() != TerminalTokens.TokenNameRBRACKET) {
 						break nextArg;

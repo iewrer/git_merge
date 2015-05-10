@@ -19,7 +19,7 @@ UnresolvedAnnotationBinding(ReferenceBinding type, ElementValuePair[] pairs, Loo
 	this.env = env;
 }
 
-public void resolve() { // in place resolution.
+public ReferenceBinding getAnnotationType() {
 	if (this.typeUnresolved) { // the type is resolved when requested
 		boolean wasToleratingMissingTypeProcessingAnnotations = this.env.mayTolerateMissingType;
 		this.env.mayTolerateMissingType = true; // https://bugs.eclipse.org/bugs/show_bug.cgi?id=388042
@@ -31,16 +31,13 @@ public void resolve() { // in place resolution.
 		}
 		this.typeUnresolved = false;
 	}
-}
-public ReferenceBinding getAnnotationType() {
-	resolve();
 	return this.type;
 }
 
 public ElementValuePair[] getElementValuePairs() {
 	if (this.env != null) {
 		if (this.typeUnresolved) {
-			resolve();
+			getAnnotationType(); // resolve the annotation type
 		}
 		// resolve method binding and value type (if unresolved) for each pair
 		for (int i = this.pairs.length; --i >= 0;) {

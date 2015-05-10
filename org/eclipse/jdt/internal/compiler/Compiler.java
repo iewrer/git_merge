@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,7 +12,9 @@
  *     							bug 186342 - [compiler][null] Using annotations for null checking
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler;
+// GROOVY PATCHED
 
+import org.codehaus.jdt.groovy.integration.LanguageSupportFactory;
 import org.eclipse.jdt.core.compiler.*;
 import org.eclipse.jdt.internal.compiler.env.*;
 import org.eclipse.jdt.internal.compiler.impl.*;
@@ -25,7 +27,6 @@ import org.eclipse.jdt.internal.compiler.util.*;
 import java.io.*;
 import java.util.*;
 
-@SuppressWarnings("rawtypes")
 public class Compiler implements ITypeRequestor, ProblemSeverities {
 	public Parser parser;
 	public ICompilerRequestor requestor;
@@ -266,6 +267,16 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 		this.options = options;
 		this.progress = progress;
 
+		// GROOVY start - temporary
+		if (this.options.buildGroovyFiles==0) {
+			// demoted to error message, groovy disabled
+			// disable this println for now - seems to have served its purpose:
+//			System.err.println("Build groovy files option has not been set one way or the other: use 'options.put(CompilerOptions.OPTIONG_BuildGroovyFiles, CompilerOptions.ENABLED);'");//$NON-NLS-1$
+			this.options.buildGroovyFiles=1;
+			this.options.groovyFlags = 0;
+		}
+		// GROOVY end
+		
 		// wrap requestor in DebugRequestor if one is specified
 		if(DebugRequestor == null) {
 			this.requestor = requestor;
@@ -326,6 +337,7 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 			} else {
 				parsedUnit = this.parser.dietParse(sourceUnit, unitResult);
 			}
+			parsedUnit.bits |= ASTNode.IsImplicitUnit;
 			// initial type binding creation
 			this.lookupEnvironment.buildTypeBindings(parsedUnit, accessRestriction);
 			addCompilationUnit(sourceUnit, parsedUnit);
@@ -418,6 +430,47 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 	 */
 	public void compile(ICompilationUnit[] sourceUnits) {
 		this.stats.startTime = System.currentTimeMillis();
+		// GROOVY start
+		// sort the sourceUnits - java first! might be temporary, hmmm
+		if (this.options.buildGroovyFiles==2) {
+			int groovyFileIndex = -1;
+//			System.out.println("before");
+//			for (int u=0,max=sourceUnits.length;u<max;u++) {
+//				System.out.println(sourceUnits[u].getFileName());
+//			}
+			for (int u=0,max=sourceUnits.length;u<max;u++) {
+				char[] fn = sourceUnits[u].getFileName();
+				boolean isDotJava = fn[fn.length-1]=='a'; // a means .java
+				if (isDotJava) {
+					if (groovyFileIndex!=-1) {
+						// swap them!
+						ICompilationUnit swap = sourceUnits[groovyFileIndex];
+						sourceUnits[groovyFileIndex] = sourceUnits[u];
+						sourceUnits[u] = swap;
+						// find the next .groovy file after the groovyFileIndex (worst case it will be 'u')
+						int newGroovyFileIndex = -1;
+						for (int g=groovyFileIndex;g<=u;g++) {
+							char[] fn2 = sourceUnits[g].getFileName();
+							boolean isDotGroovy = fn2[fn2.length-1]=='y';
+							if (isDotGroovy) {
+								newGroovyFileIndex = g;
+								break;
+							}
+						}
+						groovyFileIndex = newGroovyFileIndex;
+					}
+				} else {
+					if (groovyFileIndex==-1) {
+						groovyFileIndex = u;
+					}
+				}
+			}
+//			System.out.println("after");
+//			for (int u=0,max=sourceUnits.length;u<max;u++) {
+//				System.out.println(sourceUnits[u].getFileName());
+//			}
+		}
+		// GROOVY end
 		CompilationUnitDeclaration unit = null;
 		ProcessTaskManager processingTask = null;
 		try {
@@ -427,7 +480,7 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 			if (this.annotationProcessorManager == null) {
 				beginToCompile(sourceUnits);
 			} else {
-				ICompilationUnit[] originalUnits = sourceUnits.clone(); // remember source units in case a source type collision occurs
+				ICompilationUnit[] originalUnits = (ICompilationUnit[]) sourceUnits.clone(); // remember source units in case a source type collision occurs
 				try {
 					beginToCompile(sourceUnits);
 
@@ -683,8 +736,12 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 	}
 
 	public void initializeParser() {
-
+		// GROOVY start
+		/* old {
 		this.parser = new Parser(this.problemReporter, this.options.parseLiteralExpressionsAsConstants);
+		} new */
+		this.parser = LanguageSupportFactory.getParser(this, this.lookupEnvironment==null?null:this.lookupEnvironment.globalOptions,this.problemReporter, this.options.parseLiteralExpressionsAsConstants, 1);
+		// GROOVY end
 	}
 
 	/**
@@ -810,30 +867,21 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 			int index = 0;
 			for (int i = bottom; i < top; i++) {
 				CompilationUnitDeclaration currentUnit = this.unitsToProcess[i];
-				currentUnits[index++] = currentUnit;
+				if ((currentUnit.bits & ASTNode.IsImplicitUnit) == 0) {
+					currentUnits[index++] = currentUnit;
+				}
 			}
 			if (index != length) {
 				System.arraycopy(currentUnits, 0, (currentUnits = new CompilationUnitDeclaration[index]), 0, index);
 			}
 			this.annotationProcessorManager.processAnnotations(currentUnits, binaryTypeBindingsTemp, false);
-			// https://bugs.eclipse.org/bugs/show_bug.cgi?id=407841
-			// It is possible that during the #processAnnotations() call, some units in the next batch would have been
-			// brought forward and compiled already. If there are any such, process them for annotations then and there.
-			// This would avoid the complications of marking some units as compiled but not-annotation-processed-yet.
-			if (top < this.totalUnits) {
-				length = this.totalUnits - top; // NOTE: Reuse the same variable, but make sure it's not used after this point
-				CompilationUnitDeclaration[] addedUnits = new CompilationUnitDeclaration[length];
-				System.arraycopy(this.unitsToProcess, top, addedUnits, 0, length);
-				this.annotationProcessorManager.processAnnotations(addedUnits, binaryTypeBindingsTemp, false);
-				this.annotationProcessorStartIndex = top;
-			}
 			ICompilationUnit[] newUnits = this.annotationProcessorManager.getNewUnits();
 			newUnitSize = newUnits.length;
 			ReferenceBinding[] newClassFiles = this.annotationProcessorManager.getNewClassFiles();
 			binaryTypeBindingsTemp = newClassFiles;
 			newClassFilesSize = newClassFiles.length;
 			if (newUnitSize != 0) {
-				ICompilationUnit[] newProcessedUnits = newUnits.clone(); // remember new units in case a source type collision occurs
+				ICompilationUnit[] newProcessedUnits = (ICompilationUnit[]) newUnits.clone(); // remember new units in case a source type collision occurs
 				try {
 					this.lookupEnvironment.isProcessingAnnotations = true;
 					internalBeginToCompile(newUnits, newUnitSize);
@@ -857,7 +905,7 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 		ICompilationUnit[] newUnits = this.annotationProcessorManager.getNewUnits();
 		newUnitSize = newUnits.length;
 		if (newUnitSize != 0) {
-			ICompilationUnit[] newProcessedUnits = newUnits.clone(); // remember new units in case a source type collision occurs
+			ICompilationUnit[] newProcessedUnits = (ICompilationUnit[]) newUnits.clone(); // remember new units in case a source type collision occurs
 			try {
 				this.lookupEnvironment.isProcessingAnnotations = true;
 				internalBeginToCompile(newUnits, newUnitSize);
@@ -875,6 +923,9 @@ public class Compiler implements ITypeRequestor, ProblemSeverities {
 
 	public void reset() {
 		this.lookupEnvironment.reset();
+		// GROOVY start: give the parser a chance to reset as well
+		this.parser.reset();
+		// GROOVY end
 		this.parser.scanner.source = null;
 		this.unitsToProcess = null;
 		if (DebugRequestor != null) DebugRequestor.reset();

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,6 +12,7 @@
  *     								Bug 353474 - type converters should include more annotations
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.parser;
+// GROOVY PATCHED
 
 /**
  * Converter from source element type to parsed compilation unit.
@@ -26,6 +27,7 @@ package org.eclipse.jdt.internal.compiler.parser;
  *
  */
 
+import org.codehaus.jdt.groovy.integration.LanguageSupportFactory;
 import org.eclipse.jdt.core.IAnnotatable;
 import org.eclipse.jdt.core.IAnnotation;
 import org.eclipse.jdt.core.IImportDeclaration;
@@ -42,6 +44,7 @@ import org.eclipse.jdt.internal.compiler.ast.Initializer;
 import org.eclipse.jdt.internal.compiler.ast.TypeParameter;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.env.*;
+
 import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 import org.eclipse.jdt.internal.core.*;
@@ -107,7 +110,14 @@ public class SourceTypeConverter extends TypeConverter {
 	 * at least contain one type.
 	 */
 	private CompilationUnitDeclaration convert(ISourceType[] sourceTypes, CompilationResult compilationResult) throws JavaModelException {
+        // GROOVY start
+        /* old {
 		this.unit = new CompilationUnitDeclaration(this.problemReporter, compilationResult, 0);
+        } new */
+		this.unit = LanguageSupportFactory.newCompilationUnitDeclaration((ICompilationUnit) ((SourceTypeElementInfo) sourceTypes[0]).getHandle().getCompilationUnit(), this.problemReporter, compilationResult, 0);
+        // GROOVY end
+
+		
 		// not filled at this point
 
 		if (sourceTypes.length == 0) return this.unit;
@@ -115,17 +125,27 @@ public class SourceTypeConverter extends TypeConverter {
 		org.eclipse.jdt.core.ICompilationUnit cuHandle = topLevelTypeInfo.getHandle().getCompilationUnit();
 		this.cu = (ICompilationUnit) cuHandle;
 
-		final CompilationUnitElementInfo compilationUnitElementInfo = (CompilationUnitElementInfo) ((JavaElement) this.cu).getElementInfo();
-		if (this.has1_5Compliance && 
-				(compilationUnitElementInfo.annotationNumber >= CompilationUnitElementInfo.ANNOTATION_THRESHOLD_FOR_DIET_PARSE ||
-				(compilationUnitElementInfo.hasFunctionalTypes && (this.flags & LOCAL_TYPE) != 0))) {
+		// GROOVY start
+		// trying to avoid building an incorrect TypeDeclaration below (when it should be a GroovyTypeDeclaration).
+		// similar to code below that creates the Parser and calls dietParse
+		// FIXASC think about doing the necessary rewrite below rather than this - does it make things too slow?
+
+//		final boolean isInterestingProject = LanguageSupportFactory.isInterestingProject(compilationResult.getCompilationUnit().getjavaBuilder.getProject());
+		// GROOVY should be 'true' here?
+		if (LanguageSupportFactory.isInterestingSourceFile(new String(compilationResult.getFileName()))) {
+			try {
+				return LanguageSupportFactory.getParser(this, this.problemReporter.options, this.problemReporter, true, 3).dietParse(this.cu, compilationResult);
+			} catch (Throwable t) {
+				t.printStackTrace();
+			}
+		}
+		// GROOVY end
+		
+		if (this.has1_5Compliance && ((CompilationUnitElementInfo) ((JavaElement) this.cu).getElementInfo()).annotationNumber > 10) { // experimental value
 			// If more than 10 annotations, diet parse as this is faster, but not if
-			// the client wants local and anonymous types to be converted (https://bugs.eclipse.org/bugs/show_bug.cgi?id=254738)
-			// Also see bug https://bugs.eclipse.org/bugs/show_bug.cgi?id=405843
+			// the client wants local and anonymous types to be converted (https://bugs.eclipse.org/bugs/show_bug.cgi?id=254738) 
 			if ((this.flags & LOCAL_TYPE) == 0) {
 				return new Parser(this.problemReporter, true).dietParse(this.cu, compilationResult);
-			} else {
-				return new Parser(this.problemReporter, true).parse(this.cu, compilationResult);
 			}
 		}
 
@@ -307,17 +327,17 @@ public class SourceTypeConverter extends TypeConverter {
 		   incorrect lookup and may mistakenly end up with missing types
 		 */
 		TypeParameter[] typeParams = null;
-		char[][] typeParameterNames = methodInfo.getTypeParameterNames();
-		if (typeParameterNames != null) {
-			int parameterCount = typeParameterNames.length;
-			if (parameterCount > 0) { // method's type parameters must be null if no type parameter
-				char[][][] typeParameterBounds = methodInfo.getTypeParameterBounds();
-				typeParams = new TypeParameter[parameterCount];
-				for (int i = 0; i < parameterCount; i++) {
-					typeParams[i] = createTypeParameter(typeParameterNames[i], typeParameterBounds[i], start, end);
+			char[][] typeParameterNames = methodInfo.getTypeParameterNames();
+			if (typeParameterNames != null) {
+				int parameterCount = typeParameterNames.length;
+				if (parameterCount > 0) { // method's type parameters must be null if no type parameter
+					char[][][] typeParameterBounds = methodInfo.getTypeParameterBounds();
+					typeParams = new TypeParameter[parameterCount];
+					for (int i = 0; i < parameterCount; i++) {
+						typeParams[i] = createTypeParameter(typeParameterNames[i], typeParameterBounds[i], start, end);
+					}
 				}
 			}
-		}
 
 		int modifiers = methodInfo.getModifiers();
 		if (methodInfo.isConstructor()) {
@@ -485,15 +505,15 @@ public class SourceTypeConverter extends TypeConverter {
 		   and/or super interfaces in order to be able to detect overriding in the presence
 		   of generics.
 		 */
-		char[][] typeParameterNames = typeInfo.getTypeParameterNames();
-		if (typeParameterNames.length > 0) {
-			int parameterCount = typeParameterNames.length;
-			char[][][] typeParameterBounds = typeInfo.getTypeParameterBounds();
-			type.typeParameters = new TypeParameter[parameterCount];
-			for (int i = 0; i < parameterCount; i++) {
-				type.typeParameters[i] = createTypeParameter(typeParameterNames[i], typeParameterBounds[i], start, end);
+			char[][] typeParameterNames = typeInfo.getTypeParameterNames();
+			if (typeParameterNames.length > 0) {
+				int parameterCount = typeParameterNames.length;
+				char[][][] typeParameterBounds = typeInfo.getTypeParameterBounds();
+				type.typeParameters = new TypeParameter[parameterCount];
+				for (int i = 0; i < parameterCount; i++) {
+					type.typeParameters[i] = createTypeParameter(typeParameterNames[i], typeParameterBounds[i], start, end);
+				}
 			}
-		}
 
 		/* set superclass and superinterfaces */
 		if (typeInfo.getSuperclassName() != null) {

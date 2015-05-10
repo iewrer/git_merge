@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2014 IBM Corporation and others.
+ * Copyright (c) 2000, 2009 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,12 +7,6 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
- *                          Bug 415397 - [1.8][compiler] Type Annotations on wildcard type argument dropped
- *        Stephan Herrmann - Contribution for
- *							Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
- *							Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
- *							Bug 429958 - [1.8][null] evaluate new DefaultLocation attribute of @NonNullByDefault
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -63,29 +57,18 @@ public class Wildcard extends SingleTypeReference {
 		TypeBinding boundType = null;
 		if (this.bound != null) {
 			boundType = scope.kind == Scope.CLASS_SCOPE
-					? this.bound.resolveType((ClassScope)scope, Binding.DefaultLocationTypeBound)
-					: this.bound.resolveType((BlockScope)scope, true /* check bounds*/, Binding.DefaultLocationTypeBound);
-			this.bits |= (this.bound.bits & ASTNode.HasTypeAnnotations);
+					? this.bound.resolveType((ClassScope)scope)
+					: this.bound.resolveType((BlockScope)scope, true /* check bounds*/);
+
 			if (boundType == null) {
 				return null;
 			}
 		}
-		this.resolvedType = scope.environment().createWildcard(genericType, rank, boundType, null /*no extra bound*/, this.kind);
-		resolveAnnotations(scope, 0); // no defaultNullness for wildcards
-		if (boundType != null && boundType.hasNullTypeAnnotations() && this.resolvedType.hasNullTypeAnnotations()) {
-			if (((boundType.tagBits | this.resolvedType.tagBits) & TagBits.AnnotationNullMASK) == TagBits.AnnotationNullMASK) { // are both set?
-				Annotation annotation = this.bound.findAnnotation(boundType.tagBits & TagBits.AnnotationNullMASK);
-				scope.problemReporter().contradictoryNullAnnotationsOnBounds(annotation, this.resolvedType.tagBits);
-			}
-		}
-		return this.resolvedType;
+		WildcardBinding wildcard = scope.environment().createWildcard(genericType, rank, boundType, null /*no extra bound*/, this.kind);
+		return this.resolvedType = wildcard;
 	}
 
 	public StringBuffer printExpression(int indent, StringBuffer output){
-		if (this.annotations != null && this.annotations[0] != null) {
-			printAnnotations(this.annotations[0], output);
-			output.append(' ');
-		}
 		switch (this.kind) {
 			case Wildcard.UNBOUND :
 				output.append(WILDCARD_NAME);
@@ -103,37 +86,29 @@ public class Wildcard extends SingleTypeReference {
 	}
 
 	// only invoked for improving resilience when unable to bind generic type from parameterized reference
-	public TypeBinding resolveType(BlockScope scope, boolean checkBounds, int location) {
+	public TypeBinding resolveType(BlockScope scope, boolean checkBounds) {
 		if (this.bound != null) {
-			this.bound.resolveType(scope, checkBounds, Binding.DefaultLocationTypeBound);
-			this.bits |= (this.bound.bits & ASTNode.HasTypeAnnotations);
+			this.bound.resolveType(scope, checkBounds);
 		}
 		return null;
 	}
 	// only invoked for improving resilience when unable to bind generic type from parameterized reference
-	public TypeBinding resolveType(ClassScope scope, int location) {
+	public TypeBinding resolveType(ClassScope scope) {
 		if (this.bound != null) {
-			this.bound.resolveType(scope, Binding.DefaultLocationTypeBound);
-			this.bits |= (this.bound.bits & ASTNode.HasTypeAnnotations);
+			this.bound.resolveType(scope);
 		}
 		return null;
 	}
 	public TypeBinding resolveTypeArgument(BlockScope blockScope, ReferenceBinding genericType, int rank) {
-	    return internalResolveType(blockScope, genericType, rank); // no defaultNullness for wildcards
+	    return internalResolveType(blockScope, genericType, rank);
 	}
 
 	public TypeBinding resolveTypeArgument(ClassScope classScope, ReferenceBinding genericType, int rank) {
-	    return internalResolveType(classScope, genericType, rank); // no defaultNullness for wildcards
+	    return internalResolveType(classScope, genericType, rank);
 	}
 
 	public void traverse(ASTVisitor visitor, BlockScope scope) {
 		if (visitor.visit(this, scope)) {
-			if (this.annotations != null) {
-				Annotation [] typeAnnotations = this.annotations[0];
-				for (int i = 0, length = typeAnnotations == null ? 0 : typeAnnotations.length; i < length; i++) {
-					typeAnnotations[i].traverse(visitor, scope);
-				}
-			}
 			if (this.bound != null) {
 				this.bound.traverse(visitor, scope);
 			}
@@ -143,19 +118,10 @@ public class Wildcard extends SingleTypeReference {
 
 	public void traverse(ASTVisitor visitor, ClassScope scope) {
 		if (visitor.visit(this, scope)) {
-			if (this.annotations != null) {
-				Annotation [] typeAnnotations = this.annotations[0];
-				for (int i = 0, length = typeAnnotations == null ? 0 : typeAnnotations.length; i < length; i++) {
-					typeAnnotations[i].traverse(visitor, scope);
-				}
-			}
 			if (this.bound != null) {
 				this.bound.traverse(visitor, scope);
 			}
 		}
 		visitor.endVisit(this, scope);
-	}
-	public boolean isWildcard() {
-		return true;
 	}
 }

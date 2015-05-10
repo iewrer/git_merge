@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,14 +9,17 @@
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.internal.core;
+// GROOVY PATCHED
 
 import java.util.HashMap;
 import java.util.Map;
 
+import org.codehaus.jdt.groovy.integration.LanguageSupportFactory;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
+import org.eclipse.jdt.core.util.CompilerUtils;
 import org.eclipse.jdt.internal.compiler.*;
 import org.eclipse.jdt.internal.compiler.Compiler;
 import org.eclipse.jdt.internal.compiler.ast.CompilationUnitDeclaration;
@@ -27,14 +30,12 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.lookup.PackageBinding;
 import org.eclipse.jdt.internal.compiler.parser.SourceTypeConverter;
 import org.eclipse.jdt.internal.compiler.problem.AbortCompilation;
-import org.eclipse.jdt.internal.core.util.CommentRecorderParser;
 import org.eclipse.jdt.internal.core.util.Util;
 
 /**
  * Responsible for resolving types inside a compilation unit being reconciled,
  * reporting the discovered problems to a given IProblemRequestor.
  */
-@SuppressWarnings({ "rawtypes", "unchecked" })
 public class CompilationUnitProblemFinder extends Compiler {
 
 	/**
@@ -98,7 +99,7 @@ public class CompilationUnitProblemFinder extends Compiler {
 
 		CompilationResult result =
 			new CompilationResult(sourceTypes[0].getFileName(), 1, 1, this.options.maxProblemsPerUnit);
-		
+
 		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=305259, build the compilation unit in its own sand box.
 		final long savedComplianceLevel = this.options.complianceLevel;
 		final long savedSourceLevel = this.options.sourceLevel;
@@ -108,24 +109,24 @@ public class CompilationUnitProblemFinder extends Compiler {
 			this.options.complianceLevel = CompilerOptions.versionToJdkLevel(project.getOption(JavaCore.COMPILER_COMPLIANCE, true));
 			this.options.sourceLevel = CompilerOptions.versionToJdkLevel(project.getOption(JavaCore.COMPILER_SOURCE, true));
 
-			// need to hold onto this
-			CompilationUnitDeclaration unit =
-				SourceTypeConverter.buildCompilationUnit(
-						sourceTypes,//sourceTypes[0] is always toplevel here
-						SourceTypeConverter.FIELD_AND_METHOD // need field and methods
-						| SourceTypeConverter.MEMBER_TYPE // need member types
-						| SourceTypeConverter.FIELD_INITIALIZATION, // need field initialization
-						this.lookupEnvironment.problemReporter,
-						result);
+		// need to hold onto this
+		CompilationUnitDeclaration unit =
+			SourceTypeConverter.buildCompilationUnit(
+				sourceTypes,//sourceTypes[0] is always toplevel here
+				SourceTypeConverter.FIELD_AND_METHOD // need field and methods
+				| SourceTypeConverter.MEMBER_TYPE // need member types
+				| SourceTypeConverter.FIELD_INITIALIZATION, // need field initialization
+				this.lookupEnvironment.problemReporter,
+				result);
 
-			if (unit != null) {
-				this.lookupEnvironment.buildTypeBindings(unit, accessRestriction);
-				this.lookupEnvironment.completeTypeBindings(unit);
-			}
+		if (unit != null) {
+			this.lookupEnvironment.buildTypeBindings(unit, accessRestriction);
+			this.lookupEnvironment.completeTypeBindings(unit);
+		}
 		} finally {
 			this.options.complianceLevel = savedComplianceLevel;
 			this.options.sourceLevel = savedSourceLevel;
-		}
+	}
 	}
 
 	protected static CompilerOptions getCompilerOptions(Map settings, boolean creatingAST, boolean statementsRecovery) {
@@ -133,8 +134,7 @@ public class CompilationUnitProblemFinder extends Compiler {
 		compilerOptions.performMethodsFullRecovery = statementsRecovery;
 		compilerOptions.performStatementsRecovery = statementsRecovery;
 		compilerOptions.parseLiteralExpressionsAsConstants = !creatingAST; /*parse literal expressions as constants only if not creating a DOM AST*/
-		if (creatingAST)
-			compilerOptions.storeAnnotations = true; /* store annotations in the bindings if creating a DOM AST */
+		compilerOptions.storeAnnotations = creatingAST; /*store annotations in the bindings if creating a DOM AST*/
 		return compilerOptions;
 	}
 
@@ -180,6 +180,10 @@ public class CompilationUnitProblemFinder extends Compiler {
 			CompilerOptions compilerOptions = getCompilerOptions(project.getOptions(true), creatingAST, ((reconcileFlags & ICompilationUnit.ENABLE_STATEMENTS_RECOVERY) != 0));
 			boolean ignoreMethodBodies = (reconcileFlags & ICompilationUnit.IGNORE_METHOD_BODIES) != 0;
 			compilerOptions.ignoreMethodBodies = ignoreMethodBodies;
+			// GROOVY start
+			// options fetched prior to building problem finder then configured based on project
+			CompilerUtils.configureOptionsBasedOnNature(compilerOptions, project);
+			// GROOVY end
 			problemFinder = new CompilationUnitProblemFinder(
 				environment,
 				getHandlingPolicy(),
@@ -276,7 +280,12 @@ public class CompilationUnitProblemFinder extends Compiler {
 	 * @see org.eclipse.jdt.internal.compiler.Compiler#initializeParser()
 	 */
 	public void initializeParser() {
+        // GROOVY start
+        /* old {
 		this.parser = new CommentRecorderParser(this.problemReporter, this.options.parseLiteralExpressionsAsConstants);
+        } new */
+        this.parser = LanguageSupportFactory.getParser(this, this.lookupEnvironment==null?null:this.lookupEnvironment.globalOptions,this.problemReporter, this.options.parseLiteralExpressionsAsConstants, 3 /*CommentRecorderParserVariant with no transforms */);
+        // GROOVY end
 	}
 }
 

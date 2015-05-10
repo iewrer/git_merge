@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2011 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -31,7 +31,6 @@ import org.osgi.service.prefs.BackingStoreException;
 /**
  *
  */
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class UserLibraryManager {
 
 	public final static String CP_USERLIBRARY_PREFERENCES_PREFIX = JavaCore.PLUGIN_ID+".userLibrary."; //$NON-NLS-1$
@@ -157,7 +156,6 @@ public class UserLibraryManager {
 		} catch (ClasspathEntry.AssertionFailedException ase) {
 			Util.log(ase, "Exception while decoding user library '"+ libName +"'."); //$NON-NLS-1$ //$NON-NLS-2$
 		}
-		
 	}
 
 	public void removeUserLibrary(String libName)  {

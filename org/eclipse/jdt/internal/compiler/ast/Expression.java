@@ -1046,9 +1046,8 @@ public boolean forcedToBeRaw(ReferenceContext referenceContext) {
  * or <code>null</null> if not reusable
  */
 public Object reusableJSRTarget() {
-	if (this.constant != Constant.NotAConstant && (this.implicitConversion & TypeIds.BOXING) == 0) {
+	if (this.constant != Constant.NotAConstant)
 		return this.constant;
-	}
 	return null;
 }
 

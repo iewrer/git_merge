@@ -4045,7 +4045,7 @@ public void invokeIterableIterator(TypeBinding iterableReceiverType) {
 public void invokeAutoCloseableClose(TypeBinding resourceType) {
 	// invokevirtual/interface: <resourceType>.close()
 	invoke(
-			resourceType.erasure().isInterface() ? Opcodes.OPC_invokeinterface : Opcodes.OPC_invokevirtual,
+			resourceType.isInterface() ? Opcodes.OPC_invokeinterface : Opcodes.OPC_invokevirtual,
 			1, // receiverAndArgsSize
 			0, // returnTypeSize
 			resourceType.constantPoolName(), 
